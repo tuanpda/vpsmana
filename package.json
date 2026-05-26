@@ -1,0 +1,35 @@
+{
+  "name": "vps-manager",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "server:dev": "tsx apps/server/src/index.ts",
+    "agent:dev": "tsx apps/agent/src/index.ts",
+    "build": "tsc -b apps/server apps/agent",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "start:server": "node dist/apps/server/src/index.js",
+    "start:agent": "node dist/apps/agent/src/index.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "latest",
+    "@fastify/static": "latest",
+    "@prisma/adapter-pg": "latest",
+    "@prisma/client": "latest",
+    "dotenv": "latest",
+    "fastify": "latest",
+    "pg": "latest",
+    "ssh2": "^1.17.0",
+    "systeminformation": "latest",
+    "ws": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/pg": "latest",
+    "@types/ssh2": "^1.15.5",
+    "@types/ws": "latest",
+    "prisma": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  }
+}

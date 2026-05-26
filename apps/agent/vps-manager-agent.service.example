@@ -1,0 +1,19 @@
+[Unit]
+Description=VPS Manager Agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/vps-manager
+Environment=CENTRAL_URL=wss://manager.example.com
+Environment=AGENT_TOKEN=replace-with-token-from-dashboard
+Environment=AGENT_NAME=%H
+Environment=HEARTBEAT_INTERVAL_MS=15000
+ExecStart=/usr/bin/node /opt/vps-manager/dist/apps/agent/src/index.js
+Restart=always
+RestartSec=5
+User=hn
+
+[Install]
+WantedBy=multi-user.target

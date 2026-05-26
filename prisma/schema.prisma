@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+enum ServerStatus {
+  ONLINE
+  OFFLINE
+  DEGRADED
+}
+
+enum ServiceStatus {
+  RUNNING
+  STOPPED
+  ERRORED
+  UNKNOWN
+}
+
+enum CommandAction {
+  PM2_START
+  PM2_STOP
+  PM2_RESTART
+  PM2_RELOAD
+  GIT_PULL
+  NPM_INSTALL
+  NPM_BUILD
+  DEPLOY
+}
+
+enum CommandStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  TIMED_OUT
+  CANCELLED
+}
+
+enum DeploymentStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String?
+  role      UserRole   @default(OPERATOR)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  commands  Command[]
+  audits    AuditLog[]
+}
+
+model Server {
+  id             String       @id @default(cuid())
+  name           String
+  hostname       String?
+  ipAddress      String?
+  os             String?
+  architecture   String?
+  agentTokenHash String       @unique
+  status         ServerStatus @default(OFFLINE)
+  lastSeenAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  services       Service[]
+  commands       Command[]
+  metrics        Metric[]
+  audits         AuditLog[]
+}
+
+model Service {
+  id          String        @id @default(cuid())
+  serverId    String
+  name        String
+  pm2Name     String
+  sourcePath  String?
+  branch      String?
+  commitSha   String?
+  port        Int?
+  domain      String?
+  customer    String?
+  status      ServiceStatus @default(UNKNOWN)
+  pid         Int?
+  cpuPercent  Float?
+  memoryBytes BigInt?
+  restartCount Int?
+  uptimeMs    BigInt?
+  lastSeenAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  server      Server        @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  commands    Command[]
+  deployments Deployment[]
+
+  @@unique([serverId, pm2Name])
+  @@index([serverId, status])
+}
+
+model Command {
+  id           String        @id @default(cuid())
+  serverId     String
+  serviceId    String?
+  userId       String?
+  action       CommandAction
+  status       CommandStatus @default(QUEUED)
+  cwd          String?
+  args         Json?
+  stdout       String        @default("")
+  stderr       String        @default("")
+  exitCode     Int?
+  errorMessage String?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  server       Server        @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  service      Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  deployment   Deployment?
+
+  @@index([serverId, createdAt])
+  @@index([serviceId, createdAt])
+}
+
+model Metric {
+  id              String   @id @default(cuid())
+  serverId        String
+  cpuPercent      Float
+  load1           Float?
+  load5           Float?
+  load15          Float?
+  memoryTotal     BigInt
+  memoryUsed      BigInt
+  diskTotal       BigInt?
+  diskUsed        BigInt?
+  diskPercent     Float?
+  networkRxBytes  BigInt?
+  networkTxBytes  BigInt?
+  uptimeSeconds   BigInt?
+  createdAt       DateTime @default(now())
+  server          Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@index([serverId, createdAt])
+}
+
+model Deployment {
+  id          String           @id @default(cuid())
+  serviceId   String
+  commandId   String           @unique
+  fromCommit  String?
+  toCommit    String?
+  branch      String?
+  status      DeploymentStatus @default(RUNNING)
+  createdAt   DateTime         @default(now())
+  finishedAt  DateTime?
+  service     Service          @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  command     Command          @relation(fields: [commandId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  serverId  String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  server    Server?  @relation(fields: [serverId], references: [id], onDelete: SetNull)
+
+  @@index([serverId, createdAt])
+  @@index([userId, createdAt])
+}

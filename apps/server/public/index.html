@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VPS Manager</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">VM</div>
+          <div>
+            <h1>VPS Manager</h1>
+            <p>Quản lý VPS, PM2 service, log và deploy từ một dashboard.</p>
+          </div>
+        </div>
+        <div class="token-box">
+          <input id="tokenInput" type="password" placeholder="ADMIN_TOKEN" />
+          <button id="saveTokenButton">Lưu token</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero-card">
+          <div>
+            <span class="eyebrow">Control plane</span>
+            <h2>Điều khiển toàn bộ VPS cloud từ một nơi</h2>
+            <p>
+              Cài agent qua SSH, tự động đọc PM2, theo dõi CPU/RAM/disk, xem log realtime và thao tác restart/git pull/deploy an toàn.
+            </p>
+          </div>
+          <div class="hero-actions">
+            <button class="bootstrap-submit primary-big" type="submit" form="bootstrapForm">Cài agent vào VPS</button>
+            <button id="refreshButton" class="secondary" type="button">Refresh</button>
+          </div>
+        </section>
+
+        <section class="summary-grid" id="summary"></section>
+
+        <section class="workspace-grid">
+          <section class="panel bootstrap-panel">
+            <div class="panel-header">
+              <div>
+                <span class="section-kicker">Agent install</span>
+                <h2>Thêm VPS Cloud</h2>
+                <p class="muted">Nhập thông tin SSH để cài agent lên VPS đang chạy PM2.</p>
+              </div>
+            </div>
+            <div id="centralUrlWarning" class="warning-box" hidden>
+              Central URL đang là localhost. VPS cloud không thể kết nối về localhost trên máy của bạn.
+              Hãy đổi thành IP/domain public của máy chạy VPS Manager.
+            </div>
+            <form id="bootstrapForm" class="bootstrap-form">
+              <label>
+                <span>Tên VPS</span>
+                <input name="name" placeholder="backend_nghiadan" />
+              </label>
+              <label>
+                <span>IP VPS</span>
+                <input name="ipAddress" placeholder="14.224.xxx.xxx" required />
+              </label>
+              <label>
+                <span>SSH port</span>
+                <input name="sshPort" type="number" value="22" required />
+              </label>
+              <label>
+                <span>SSH user</span>
+                <input name="sshUser" placeholder="hn" required />
+              </label>
+              <label>
+                <span>User chạy PM2</span>
+                <input name="serviceUser" placeholder="Để trống = SSH user" />
+              </label>
+              <label>
+                <span>Central URL public</span>
+                <input name="centralUrl" id="centralUrlInput" placeholder="https://manager.example.com" />
+              </label>
+              <label>
+                <span>SSH password</span>
+                <input name="password" type="password" placeholder="Không lưu lại sau khi cài" />
+              </label>
+              <label>
+                <span>Sudo password</span>
+                <input name="sudoPassword" type="password" placeholder="Để trống = SSH password" />
+              </label>
+              <label class="wide">
+                <span>Private key</span>
+                <textarea name="privateKey" rows="5" placeholder="Dán private key nếu không dùng password"></textarea>
+              </label>
+              <label>
+                <span>Thư mục cài agent</span>
+                <input name="installDir" value="/opt/vps-manager-agent" />
+              </label>
+              <div class="form-actions wide">
+                <button class="bootstrap-submit primary-wide" type="submit">Cài agent vào VPS</button>
+                <span id="bootstrapStatus" class="muted">Sau khi bấm, theo dõi tiến trình ở Realtime Output.</span>
+              </div>
+            </form>
+            <p class="hint">
+              VPS cần có Node.js, npm, PM2 và user SSH có quyền sudo. Không dùng localhost cho VPS cloud.
+            </p>
+          </section>
+
+          <section class="panel output-panel">
+            <div class="panel-header compact">
+              <div>
+                <span class="section-kicker">Live stream</span>
+                <h2>Realtime Output</h2>
+              </div>
+              <button id="clearOutputButton" class="secondary" type="button">Clear</button>
+            </div>
+            <pre id="output"></pre>
+          </section>
+        </section>
+
+        <section class="panel servers-panel">
+          <div class="panel-header">
+            <div>
+              <span class="section-kicker">Inventory</span>
+              <h2>Servers</h2>
+              <p class="muted">Danh sách VPS đã cài agent và các PM2 service phát hiện được.</p>
+            </div>
+          </div>
+          <div id="servers" class="server-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
