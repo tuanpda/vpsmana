@@ -24,10 +24,20 @@ export interface BootstrapVpsResult {
   serviceUser: string;
 }
 
+export class BootstrapError extends Error {
+  constructor(
+    message: string,
+    readonly logs: string[]
+  ) {
+    super(message);
+    this.name = "BootstrapError";
+  }
+}
+
 interface RemoteExecOptions {
-  sudo?: boolean;
+  sshUser: string;
   sudoPassword?: string;
-  username: string;
+  label: string;
 }
 
 interface RemoteExecResult {
@@ -54,71 +64,71 @@ export async function bootstrapVpsAgent(
   const logs: string[] = [];
   const installDir = input.installDir?.trim() || "/opt/vps-manager-agent";
   const serviceUser = input.serviceUser?.trim() || input.sshUser.trim();
+  const sshUser = input.sshUser.trim();
   const centralUrl = normalizeCentralUrl(input.centralUrl?.trim() || config.publicUrl);
+  const sudoPassword = input.sudoPassword || input.password;
+  const execBase: Omit<RemoteExecOptions, "label"> = {
+    sshUser,
+    sudoPassword
+  };
+
   const conn = await connectSsh(input, logs);
 
   try {
     const agentDistDir = await assertAgentBuild();
-    logs.push(`Connected to ${input.sshUser}@${input.ipAddress}:${input.sshPort ?? 22}`);
+    logs.push(`Connected to ${sshUser}@${input.ipAddress}:${input.sshPort ?? 22}`);
 
-    await runRemote(conn, `mkdir -p ${shellQuote(installDir)} && chown -R ${shellQuote(serviceUser)}:${shellQuote(serviceUser)} ${shellQuote(installDir)}`, {
-      sudo: input.sshUser !== "root",
-      sudoPassword: input.sudoPassword || input.password,
-      username: input.sshUser
+    await runStep(logs, "Create install directory", async () => {
+      const script = `mkdir -p ${shellQuote(installDir)} && chown -R ${shellQuote(serviceUser)}:${shellQuote(serviceUser)} ${shellQuote(installDir)}`;
+      if (sshUser === "root") {
+        await runRemoteShell(conn, script, { ...execBase, label: "mkdir" });
+      } else {
+        await runRemoteRoot(conn, script, { ...execBase, label: "mkdir" });
+      }
     });
-    logs.push(`Prepared ${installDir}`);
 
     const sftp = await openSftp(conn);
-    await uploadAgentBundle(sftp, agentDistDir, installDir);
-    logs.push("Uploaded agent bundle");
 
-    await runRemote(conn, `chown -R ${shellQuote(serviceUser)}:${shellQuote(serviceUser)} ${shellQuote(installDir)}`, {
-      sudo: input.sshUser !== "root",
-      sudoPassword: input.sudoPassword || input.password,
-      username: input.sshUser
+    await runStep(logs, "Upload agent files", async () => {
+      await uploadAgentBundle(sftp, agentDistDir, installDir);
     });
 
-    const runtimePaths = await detectRuntimePaths(conn, serviceUser, {
-      sudo: input.sshUser !== "root",
-      sudoPassword: input.sudoPassword || input.password,
-      username: input.sshUser
-    });
+    const runtimePaths = await runStepWithValue(logs, "Detect node/npm/pm2 paths", () =>
+      detectRuntimePaths(conn, sshUser, serviceUser, execBase)
+    );
     logs.push(`Detected runtime: node=${runtimePaths.node}, npm=${runtimePaths.npm}, pm2=${runtimePaths.pm2}`);
 
-    await uploadSystemdService(sftp, installDir, {
-      name: input.name?.trim() || input.ipAddress,
-      token: agentToken,
-      centralUrl,
-      installDir,
-      serviceUser,
-      runtimePaths
+    await runStep(logs, "Write systemd unit", async () => {
+      await uploadSystemdService(sftp, installDir, {
+        name: input.name?.trim() || input.ipAddress,
+        token: agentToken,
+        centralUrl,
+        installDir,
+        serviceUser,
+        runtimePaths
+      });
     });
 
-    const installDependenciesCommand = runAsLoginUser(
-      serviceUser,
-      `cd ${shellQuote(installDir)} && ${shellQuote(runtimePaths.npm)} install --omit=dev`
-    );
-
-    await runRemote(conn, installDependenciesCommand, {
-      sudo: input.sshUser !== "root",
-      sudoPassword: input.sudoPassword || input.password,
-      username: input.sshUser
+    await runStep(logs, "Install agent dependencies", async () => {
+      const installScript = `cd ${shellQuote(installDir)} && ${shellQuote(runtimePaths.npm)} install --omit=dev`;
+      await runAsServiceUser(conn, sshUser, serviceUser, installScript, execBase, "npm install");
     });
-    logs.push("Installed agent dependencies on VPS");
 
-    const installServiceCommand = [
-      `cp ${shellQuote(`${installDir}/vps-manager-agent.service`)} /etc/systemd/system/vps-manager-agent.service`,
-      "systemctl daemon-reload",
-      "systemctl enable vps-manager-agent",
-      "systemctl restart vps-manager-agent",
-      "systemctl --no-pager --full status vps-manager-agent | sed -n '1,14p'"
-    ].join(" && ");
-    const status = await runRemote(conn, installServiceCommand, {
-      sudo: input.sshUser !== "root",
-      sudoPassword: input.sudoPassword || input.password,
-      username: input.sshUser
+    await runStep(logs, "Enable systemd service", async () => {
+      const installServiceCommand = [
+        `cp ${shellQuote(`${installDir}/vps-manager-agent.service`)} /etc/systemd/system/vps-manager-agent.service`,
+        "systemctl daemon-reload",
+        "systemctl enable vps-manager-agent",
+        "systemctl restart vps-manager-agent",
+        "systemctl --no-pager --full status vps-manager-agent | sed -n '1,14p'"
+      ].join(" && ");
+
+      if (sshUser === "root") {
+        await runRemoteShell(conn, installServiceCommand, { ...execBase, label: "systemd" });
+      } else {
+        await runRemoteRoot(conn, installServiceCommand, { ...execBase, label: "systemd" });
+      }
     });
-    logs.push(status.stdout.trim() || "Started vps-manager-agent service");
 
     return {
       logs,
@@ -126,8 +136,35 @@ export async function bootstrapVpsAgent(
       installDir,
       serviceUser
     };
+  } catch (error) {
+    if (error instanceof BootstrapError) {
+      throw error;
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    throw new BootstrapError(message, logs);
   } finally {
     conn.end();
+  }
+}
+
+async function runStep(logs: string[], label: string, action: () => Promise<void>): Promise<void> {
+  await runStepWithValue(logs, label, async () => {
+    await action();
+    return undefined;
+  });
+}
+
+async function runStepWithValue<T>(logs: string[], label: string, action: () => Promise<T>): Promise<T> {
+  logs.push(`[step] ${label}...`);
+
+  try {
+    const value = await action();
+    logs.push(`[step] ${label} OK`);
+    return value;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new BootstrapError(`Failed at "${label}": ${message}`, logs);
   }
 }
 
@@ -152,7 +189,7 @@ async function assertAgentBuild(): Promise<string> {
     try {
       await fs.access(path.join(agentDistDir, file));
     } catch {
-      throw new Error("Agent build not found. Run `npm run build` before bootstrapping a VPS.");
+      throw new Error("Agent build not found. Run `npm run build` on VPS Manager before bootstrapping.");
     }
   }
 
@@ -176,7 +213,9 @@ function connectSsh(input: BootstrapVpsInput, logs: string[]): Promise<Client> {
 
   return new Promise((resolve, reject) => {
     conn.once("ready", () => resolve(conn));
-    conn.once("error", reject);
+    conn.once("error", (error) => {
+      reject(new Error(formatSshError(error)));
+    });
     conn.connect(sshConfig);
   });
 }
@@ -194,11 +233,7 @@ function openSftp(conn: Client): Promise<SFTPWrapper> {
   });
 }
 
-async function uploadAgentBundle(
-  sftp: SFTPWrapper,
-  agentDistDir: string,
-  installDir: string
-): Promise<void> {
+async function uploadAgentBundle(sftp: SFTPWrapper, agentDistDir: string, installDir: string): Promise<void> {
   for (const file of AGENT_FILES) {
     await fastPut(sftp, path.join(agentDistDir, file), `${installDir}/${file}`);
   }
@@ -247,59 +282,60 @@ function writeRemoteFile(sftp: SFTPWrapper, remotePath: string, content: string)
   });
 }
 
-function runRemote(conn: Client, script: string, options: RemoteExecOptions): Promise<RemoteExecResult> {
-  const command =
-    options.sudo && options.username !== "root"
-      ? `sudo -S -p "" bash -lc ${shellQuote(script)}`
-      : `bash -lc ${shellQuote(script)}`;
+async function runAsServiceUser(
+  conn: Client,
+  sshUser: string,
+  serviceUser: string,
+  script: string,
+  options: Omit<RemoteExecOptions, "label">,
+  label: string
+): Promise<void> {
+  if (sshUser === serviceUser) {
+    await runRemoteShell(conn, script, { ...options, label });
+    return;
+  }
 
-  return new Promise((resolve, reject) => {
-    conn.exec(command, { pty: Boolean(options.sudo) }, (error, stream) => {
-      if (error) {
-        reject(error);
-        return;
-      }
+  if (sshUser === "root") {
+    await runRemoteShell(
+      conn,
+      `sudo -iu ${shellQuote(serviceUser)} bash -ilc ${shellQuote(script)}`,
+      { ...options, label }
+    );
+    return;
+  }
 
-      let stdout = "";
-      let stderr = "";
-
-      if (options.sudo && options.sudoPassword) {
-        stream.write(`${options.sudoPassword}\n`);
-      }
-
-      stream.on("close", (code: number | null) => {
-        const exitCode = code ?? 0;
-
-        if (exitCode !== 0) {
-          reject(new Error(`Remote command failed (${exitCode}): ${stderr || stdout || script}`));
-          return;
-        }
-
-        resolve({ stdout, stderr, code: exitCode });
-      });
-      stream.on("data", (chunk: Buffer) => {
-        stdout += chunk.toString();
-      });
-      stream.stderr.on("data", (chunk: Buffer) => {
-        stderr += chunk.toString();
-      });
-    });
-  });
+  await runRemoteRoot(
+    conn,
+    `sudo -iu ${shellQuote(serviceUser)} bash -ilc ${shellQuote(script)}`,
+    { ...options, label }
+  );
 }
 
-async function detectRuntimePaths(conn: Client, serviceUser: string, options: RemoteExecOptions): Promise<RuntimePaths> {
-  const result = await runRemote(
-    conn,
-    runAsLoginUser(
-      serviceUser,
-      [
-        "command -v node",
-        "command -v npm",
-        "command -v pm2"
-      ].join(" && ")
-    ),
-    options
-  );
+async function detectRuntimePaths(
+  conn: Client,
+  sshUser: string,
+  serviceUser: string,
+  options: Omit<RemoteExecOptions, "label">
+): Promise<RuntimePaths> {
+  const probe = "command -v node && command -v npm && command -v pm2";
+  let result: RemoteExecResult;
+
+  if (sshUser === serviceUser) {
+    result = await runRemoteShell(conn, probe, { ...options, label: "detect-runtime" });
+  } else if (sshUser === "root") {
+    result = await runRemoteShell(
+      conn,
+      `sudo -iu ${shellQuote(serviceUser)} bash -ilc ${shellQuote(probe)}`,
+      { ...options, label: "detect-runtime" }
+    );
+  } else {
+    result = await runRemoteRoot(
+      conn,
+      `sudo -iu ${shellQuote(serviceUser)} bash -ilc ${shellQuote(probe)}`,
+      { ...options, label: "detect-runtime" }
+    );
+  }
+
   const [node, npm, pm2] = result.stdout
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -307,19 +343,100 @@ async function detectRuntimePaths(conn: Client, serviceUser: string, options: Re
 
   if (!node || !npm || !pm2) {
     throw new Error(
-      `Could not detect node/npm/pm2 for user ${serviceUser}. stdout=${result.stdout.trim()} stderr=${result.stderr.trim()}`
+      `Could not detect node/npm/pm2 for user ${serviceUser}. stdout=${result.stdout.trim() || "(empty)"} stderr=${result.stderr.trim() || "(empty)"}`
     );
   }
 
   return { node, npm, pm2 };
 }
 
-function runAsLoginUser(serviceUser: string, command: string): string {
-  if (serviceUser === "root") {
-    return `bash -lc ${shellQuote(command)}`;
+function runRemoteShell(conn: Client, script: string, options: RemoteExecOptions): Promise<RemoteExecResult> {
+  return runRemote(conn, `bash -ilc ${shellQuote(script)}`, {
+    useSudo: false,
+    pty: false,
+    ...options
+  });
+}
+
+function runRemoteRoot(conn: Client, script: string, options: RemoteExecOptions): Promise<RemoteExecResult> {
+  if (options.sshUser === "root") {
+    return runRemoteShell(conn, script, options);
   }
 
-  return `sudo -iu ${shellQuote(serviceUser)} bash -lc ${shellQuote(command)}`;
+  return runRemote(conn, `sudo -S -p "" bash -ilc ${shellQuote(script)}`, {
+    useSudo: true,
+    pty: true,
+    ...options
+  });
+}
+
+function runRemote(
+  conn: Client,
+  command: string,
+  options: RemoteExecOptions & { useSudo: boolean; pty: boolean }
+): Promise<RemoteExecResult> {
+  return new Promise((resolve, reject) => {
+    conn.exec(command, { pty: options.pty }, (error, stream) => {
+      if (error) {
+        reject(new Error(`[${options.label}] ${error.message}`));
+        return;
+      }
+
+      let stdout = "";
+      let stderr = "";
+      let passwordSent = false;
+
+      const sendSudoPassword = () => {
+        if (!options.useSudo || passwordSent || !options.sudoPassword) {
+          return;
+        }
+
+        passwordSent = true;
+        stream.write(`${options.sudoPassword}\n`);
+      };
+
+      stream.on("data", (chunk: Buffer) => {
+        const text = chunk.toString();
+        stdout += text;
+
+        if (options.useSudo && /password|sudo/i.test(text)) {
+          sendSudoPassword();
+        }
+      });
+
+      stream.stderr.on("data", (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+
+      stream.on("close", (code: number | null) => {
+        const exitCode = code ?? 0;
+
+        if (exitCode !== 0) {
+          const detail = [stderr.trim(), stdout.trim()].filter(Boolean).join(" | ") || "(no output)";
+          reject(
+            new Error(
+              `[${options.label}] exit ${exitCode}: ${detail}\nCommand: ${command}`
+            )
+          );
+          return;
+        }
+
+        resolve({ stdout, stderr, code: exitCode });
+      });
+
+      if (options.useSudo) {
+        setTimeout(sendSudoPassword, 100);
+      }
+    });
+  });
+}
+
+function formatSshError(error: Error): string {
+  if (error.message.includes("All configured authentication methods failed")) {
+    return "SSH login failed. Check IP, port, username, password/private key.";
+  }
+
+  return error.message;
 }
 
 function normalizeCentralUrl(value: string): string {
@@ -378,7 +495,7 @@ Environment="AGENT_TOKEN=${systemdEscape(options.token)}"
 Environment="AGENT_NAME=${systemdEscape(options.name)}"
 Environment="HEARTBEAT_INTERVAL_MS=15000"
 Environment="PATH=${systemdEscape(`${nodeDir}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`)}"
-ExecStart=/bin/bash -lc "cd ${systemdEscape(options.installDir)} && exec ${systemdEscape(options.runtimePaths.node)} index.js"
+ExecStart=/bin/bash -ilc "cd ${systemdEscape(options.installDir)} && exec ${systemdEscape(options.runtimePaths.node)} index.js"
 Restart=always
 RestartSec=5
 User=${options.serviceUser}

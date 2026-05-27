@@ -54,15 +54,21 @@ async function api(path, options = {}) {
 
   if (!response.ok) {
     let detail = `${response.status} ${response.statusText}`;
+    let logs;
 
     try {
       const errorBody = await response.json();
       detail = errorBody.error || JSON.stringify(errorBody);
+      logs = errorBody.logs;
     } catch {
       // Keep the HTTP status if the response body is not JSON.
     }
 
-    throw new Error(detail);
+    const error = new Error(detail);
+    if (logs) {
+      error.logs = logs;
+    }
+    throw error;
   }
 
   return response.json();
@@ -163,6 +169,9 @@ async function bootstrapVps(formData) {
     await refresh();
   } catch (error) {
     appendOutput(`[bootstrap failed] ${error.message}`);
+    for (const line of error.logs || []) {
+      appendOutput(`[bootstrap] ${line}`);
+    }
   } finally {
     setBootstrapBusy(false);
   }

@@ -4,7 +4,7 @@ import { AgentGateway } from "./agentGateway";
 import { ServerConfig } from "./config";
 import { buildClearSessionCookie, buildSessionCookie, isAdminToken, readAuthContext, requireApiRole } from "./auth";
 import { generateToken, hashToken } from "./security";
-import { bootstrapVpsAgent, BootstrapVpsInput } from "./sshBootstrap";
+import { bootstrapVpsAgent, BootstrapError, BootstrapVpsInput } from "./sshBootstrap";
 import { toJsonSafe } from "./json";
 
 const ACTIONS_REQUIRING_SERVICE = new Set<CommandAction>([
@@ -183,6 +183,7 @@ export function registerRoutes(
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      const logs = error instanceof BootstrapError ? error.logs : [];
 
       await prisma.auditLog.create({
         data: {
@@ -192,7 +193,8 @@ export function registerRoutes(
           serverId: server.id,
           metadata: {
             actor: actor.label,
-            error: message
+            error: message,
+            logs
           },
           ipAddress: request.ip
         }
@@ -200,7 +202,8 @@ export function registerRoutes(
 
       return reply.code(500).send({
         error: message,
-        serverId: server.id
+        serverId: server.id,
+        logs
       });
     }
   });
