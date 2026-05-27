@@ -272,10 +272,9 @@ main {
 }
 
 .workspace-grid {
-  align-items: start;
   display: grid;
   gap: 20px;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .panel {
@@ -369,21 +368,24 @@ main {
 }
 
 .output-panel {
-  position: sticky;
-  top: 96px;
+  width: 100%;
+}
+
+.output-panel .panel-header {
+  align-items: center;
 }
 
 #output {
   background: #0f172a;
   border-radius: 12px;
   color: #e2e8f0;
-  font: 12px/1.55 ui-monospace, Consolas, monospace;
+  font: 13px/1.6 ui-monospace, Consolas, monospace;
+  height: clamp(360px, 52vh, 720px);
   margin-top: 14px;
-  max-height: 520px;
-  min-height: 320px;
   overflow: auto;
-  padding: 14px;
+  padding: 16px 18px;
   white-space: pre-wrap;
+  width: 100%;
 }
 
 .server-list {
@@ -731,16 +733,8 @@ main {
 }
 
 @media (max-width: 1100px) {
-  .workspace-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .output-panel {
-    position: static;
-  }
-
   #output {
-    max-height: 280px;
+    height: clamp(280px, 42vh, 520px);
   }
 
   .server-row-header {
