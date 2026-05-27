@@ -24,6 +24,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   background:
     radial-gradient(circle at top left, rgb(37 99 235 / 24%), transparent 34rem),
