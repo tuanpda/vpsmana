@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs";
 import cors from "@fastify/cors";
 import fastify from "fastify";
 import fastifyStatic from "@fastify/static";
@@ -23,7 +24,7 @@ async function main(): Promise<void> {
     origin: true
   });
   await app.register(fastifyStatic, {
-    root: path.resolve(__dirname, "../public"),
+    root: resolvePublicDir(),
     prefix: "/"
   });
 
@@ -59,3 +60,17 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
+
+function resolvePublicDir(): string {
+  const candidates = [
+    path.resolve(process.cwd(), "apps/server/public"),
+    path.resolve(__dirname, "../public")
+  ];
+  const publicDir = candidates.find((candidate) => fs.existsSync(candidate));
+
+  if (!publicDir) {
+    throw new Error(`Could not find server public directory. Checked: ${candidates.join(", ")}`);
+  }
+
+  return publicDir;
+}
