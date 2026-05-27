@@ -20,6 +20,14 @@ const bootstrapStatus = document.getElementById("bootstrapStatus");
 const summary = document.getElementById("summary");
 const servers = document.getElementById("servers");
 const output = document.getElementById("output");
+const dialogRoot = document.getElementById("dialogRoot");
+const dialogIcon = document.getElementById("dialogIcon");
+const dialogTitle = document.getElementById("dialogTitle");
+const dialogMessage = document.getElementById("dialogMessage");
+const dialogCancel = document.getElementById("dialogCancel");
+const dialogConfirm = document.getElementById("dialogConfirm");
+
+let dialogResolver = null;
 
 centralUrlInput.value = window.location.origin;
 updateCentralUrlWarning();
@@ -41,6 +49,81 @@ bootstrapForm.addEventListener("submit", (event) => {
   void bootstrapVps(new FormData(bootstrapForm));
 });
 centralUrlInput.addEventListener("input", updateCentralUrlWarning);
+
+dialogCancel.addEventListener("click", () => closeDialog(false));
+dialogConfirm.addEventListener("click", () => closeDialog(true));
+dialogRoot.querySelector("[data-dialog-dismiss]").addEventListener("click", () => closeDialog(false));
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !dialogRoot.hidden) {
+    closeDialog(false);
+  }
+});
+
+function openDialog(options) {
+  const {
+    variant = "info",
+    alertOnly = false,
+    title,
+    message,
+    icon,
+    confirmLabel = "Xác nhận",
+    cancelLabel = "Hủy"
+  } = options;
+
+  dialogRoot.classList.remove("is-danger", "is-info", "is-alert-only");
+  dialogRoot.classList.add(variant === "danger" ? "is-danger" : "is-info");
+  if (alertOnly) {
+    dialogRoot.classList.add("is-alert-only");
+  }
+
+  dialogIcon.textContent = icon;
+  dialogTitle.textContent = title;
+  dialogMessage.innerHTML = message;
+  dialogCancel.textContent = cancelLabel;
+  dialogConfirm.textContent = confirmLabel;
+  dialogRoot.hidden = false;
+  document.body.style.overflow = "hidden";
+  dialogConfirm.focus();
+
+  return new Promise((resolve) => {
+    dialogResolver = resolve;
+  });
+}
+
+function closeDialog(confirmed) {
+  if (!dialogResolver) {
+    return;
+  }
+
+  dialogRoot.hidden = true;
+  document.body.style.overflow = "";
+  const resolve = dialogResolver;
+  dialogResolver = null;
+  resolve(confirmed);
+}
+
+function confirmDialog(options) {
+  return openDialog({
+    variant: options.variant ?? "danger",
+    alertOnly: false,
+    title: options.title,
+    message: options.message,
+    icon: options.icon ?? "!",
+    confirmLabel: options.confirmLabel ?? "Xóa",
+    cancelLabel: options.cancelLabel ?? "Hủy"
+  });
+}
+
+function alertDialog(options) {
+  return openDialog({
+    variant: options.variant ?? "info",
+    alertOnly: true,
+    title: options.title,
+    message: options.message,
+    icon: options.icon ?? "i",
+    confirmLabel: options.confirmLabel ?? "Đóng"
+  }).then(() => undefined);
+}
 
 async function api(path, options = {}) {
   const headers = { ...(options.headers || {}) };
@@ -141,7 +224,14 @@ function showLogin() {
 }
 
 async function deleteServer(serverId, serverName) {
-  if (!confirm(`Xóa VPS "${serverName}" khỏi dashboard?`)) {
+  const confirmed = await confirmDialog({
+    title: "Xóa VPS khỏi dashboard?",
+    message: `Bạn sắp xóa <strong>${escapeHtml(serverName)}</strong>. Agent trên VPS vẫn chạy nhưng sẽ không còn hiển thị ở đây cho đến khi cài lại.`,
+    confirmLabel: "Xóa VPS",
+    cancelLabel: "Giữ lại"
+  });
+
+  if (!confirmed) {
     return;
   }
 
@@ -155,7 +245,13 @@ async function deleteServer(serverId, serverName) {
   } catch (error) {
     state.servers = previousServers;
     render();
-    alert(`Không xóa được VPS: ${error.message}`);
+    await alertDialog({
+      variant: "danger",
+      title: "Không xóa được VPS",
+      message: escapeHtml(error.message),
+      icon: "×",
+      confirmLabel: "Đóng"
+    });
     appendOutput(`[delete failed] ${error.message}`);
   }
 }

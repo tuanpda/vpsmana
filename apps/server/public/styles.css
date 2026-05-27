@@ -612,6 +612,124 @@ main {
   padding: 12px;
 }
 
+.dialog-root {
+  align-items: center;
+  display: grid;
+  inset: 0;
+  justify-items: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 1000;
+}
+
+.dialog-root:not([hidden]) {
+  display: grid;
+}
+
+.dialog-backdrop {
+  animation: dialog-fade-in 180ms ease;
+  backdrop-filter: blur(4px);
+  background: rgb(15 23 42 / 42%);
+  inset: 0;
+  position: absolute;
+}
+
+.dialog-card {
+  animation: dialog-slide-in 220ms ease;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  max-width: 420px;
+  padding: 24px;
+  position: relative;
+  text-align: center;
+  width: min(100%, 420px);
+  z-index: 1;
+}
+
+.dialog-icon {
+  align-items: center;
+  border-radius: 999px;
+  display: grid;
+  font-size: 22px;
+  font-weight: 700;
+  height: 52px;
+  justify-items: center;
+  margin: 0 auto 14px;
+  width: 52px;
+}
+
+.dialog-root.is-danger .dialog-icon {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.dialog-root.is-info .dialog-icon {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.dialog-title {
+  font-size: 1.15rem;
+  margin: 0 0 8px;
+}
+
+.dialog-message {
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0 0 22px;
+}
+
+.dialog-message strong {
+  color: var(--text);
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+.dialog-actions button {
+  min-width: 112px;
+}
+
+.dialog-root.is-alert-only .dialog-actions button.secondary {
+  display: none;
+}
+
+.dialog-root.is-danger #dialogConfirm {
+  background: var(--danger);
+}
+
+.dialog-root.is-danger #dialogConfirm:hover {
+  background: #b91c1c;
+}
+
+@keyframes dialog-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialog-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @media (max-width: 1100px) {
   .workspace-grid {
     grid-template-columns: 1fr;
