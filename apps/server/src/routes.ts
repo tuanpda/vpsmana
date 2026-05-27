@@ -2,7 +2,7 @@ import { CommandAction, PrismaClient } from "@prisma/client";
 import { FastifyInstance } from "fastify";
 import { AgentGateway } from "./agentGateway";
 import { ServerConfig } from "./config";
-import { requireApiRole } from "./auth";
+import { buildClearSessionCookie, buildSessionCookie, isAdminToken, readAuthContext, requireApiRole } from "./auth";
 import { generateToken, hashToken } from "./security";
 import { bootstrapVpsAgent, BootstrapVpsInput } from "./sshBootstrap";
 import { toJsonSafe } from "./json";
@@ -35,6 +35,10 @@ interface LogStreamBody {
   lines?: number;
 }
 
+interface LoginBody {
+  token?: string;
+}
+
 export function registerRoutes(
   app: FastifyInstance,
   prisma: PrismaClient,
@@ -45,6 +49,26 @@ export function registerRoutes(
     ok: true,
     at: new Date().toISOString()
   }));
+
+  app.get("/api/session", async (request) => ({
+    authenticated: Boolean(readAuthContext(request, config))
+  }));
+
+  app.post<{ Body: LoginBody }>("/api/login", async (request, reply) => {
+    const token = request.body?.token?.trim() ?? "";
+
+    if (!isAdminToken(token, config)) {
+      return reply.code(401).send({ error: "Invalid ADMIN_TOKEN" });
+    }
+
+    reply.header("Set-Cookie", buildSessionCookie(config));
+    return { ok: true };
+  });
+
+  app.post("/api/logout", async (_request, reply) => {
+    reply.header("Set-Cookie", buildClearSessionCookie(config));
+    return { ok: true };
+  });
 
   app.get("/api/servers", async (request) => {
     requireApiRole(request, config, ["ADMIN", "OPERATOR", "VIEWER"]);

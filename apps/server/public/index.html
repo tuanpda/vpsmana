@@ -7,7 +7,21 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="page-shell">
+    <section id="loginScreen" class="login-screen">
+      <div class="login-card">
+        <div class="brand-mark">VM</div>
+        <span class="eyebrow">Private control panel</span>
+        <h1>Đăng nhập VPS Manager</h1>
+        <p>Nhập `ADMIN_TOKEN` trong file `.env` để truy cập dashboard quản trị.</p>
+        <form id="loginForm" class="login-form">
+          <input id="loginTokenInput" type="password" placeholder="ADMIN_TOKEN" autocomplete="current-password" required />
+          <button type="submit">Đăng nhập</button>
+        </form>
+        <p id="loginError" class="login-error" hidden></p>
+      </div>
+    </section>
+
+    <div id="appShell" class="page-shell" hidden>
       <header class="topbar">
         <div class="brand">
           <div class="brand-mark">VM</div>
@@ -16,9 +30,9 @@
             <p>Quản lý VPS, PM2 service, log và deploy từ một dashboard.</p>
           </div>
         </div>
-        <div class="token-box">
-          <input id="tokenInput" type="password" placeholder="ADMIN_TOKEN" />
-          <button id="saveTokenButton">Lưu token</button>
+        <div class="session-box">
+          <span>Đã đăng nhập</span>
+          <button id="logoutButton" class="secondary" type="button">Đăng xuất</button>
         </div>
       </header>
 

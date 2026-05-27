@@ -1,11 +1,15 @@
 const state = {
-  token: localStorage.getItem("vps-manager-token") || "",
+  authenticated: false,
   servers: [],
   socket: null
 };
 
-const tokenInput = document.getElementById("tokenInput");
-const saveTokenButton = document.getElementById("saveTokenButton");
+const loginScreen = document.getElementById("loginScreen");
+const appShell = document.getElementById("appShell");
+const loginForm = document.getElementById("loginForm");
+const loginTokenInput = document.getElementById("loginTokenInput");
+const loginError = document.getElementById("loginError");
+const logoutButton = document.getElementById("logoutButton");
 const refreshButton = document.getElementById("refreshButton");
 const clearOutputButton = document.getElementById("clearOutputButton");
 const bootstrapForm = document.getElementById("bootstrapForm");
@@ -17,15 +21,15 @@ const summary = document.getElementById("summary");
 const servers = document.getElementById("servers");
 const output = document.getElementById("output");
 
-tokenInput.value = state.token;
 centralUrlInput.value = window.location.origin;
 updateCentralUrlWarning();
 
-saveTokenButton.addEventListener("click", () => {
-  state.token = tokenInput.value.trim();
-  localStorage.setItem("vps-manager-token", state.token);
-  connectRealtime();
-  void refresh();
+loginForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  void login();
+});
+logoutButton.addEventListener("click", () => {
+  void logout();
 });
 
 refreshButton.addEventListener("click", () => void refresh());
@@ -41,9 +45,9 @@ centralUrlInput.addEventListener("input", updateCentralUrlWarning);
 async function api(path, options = {}) {
   const response = await fetch(path, {
     ...options,
+    credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${state.token}`,
       ...(options.headers || {})
     }
   });
@@ -64,9 +68,66 @@ async function api(path, options = {}) {
   return response.json();
 }
 
+async function checkSession() {
+  try {
+    const session = await api("/api/session");
+    if (session.authenticated) {
+      showApp();
+      return;
+    }
+  } catch {
+    // Fall through to login screen.
+  }
+
+  showLogin();
+}
+
+async function login() {
+  loginError.hidden = true;
+
+  try {
+    await api("/api/login", {
+      method: "POST",
+      body: JSON.stringify({
+        token: loginTokenInput.value.trim()
+      })
+    });
+    loginTokenInput.value = "";
+    showApp();
+  } catch (error) {
+    loginError.textContent = `Đăng nhập thất bại: ${error.message}`;
+    loginError.hidden = false;
+  }
+}
+
+async function logout() {
+  try {
+    await api("/api/logout", { method: "POST" });
+  } finally {
+    state.socket?.close();
+    state.socket = null;
+    state.authenticated = false;
+    showLogin();
+  }
+}
+
+function showApp() {
+  state.authenticated = true;
+  loginScreen.hidden = true;
+  appShell.hidden = false;
+  connectRealtime();
+  void refresh();
+}
+
+function showLogin() {
+  loginScreen.hidden = false;
+  appShell.hidden = true;
+  loginTokenInput.focus();
+}
+
 async function bootstrapVps(formData) {
-  if (!state.token) {
-    appendOutput("Nhập ADMIN_TOKEN trước khi thêm VPS.");
+  if (!state.authenticated) {
+    showLogin();
     return;
   }
 
@@ -129,8 +190,8 @@ function updateCentralUrlWarning() {
 }
 
 async function refresh() {
-  if (!state.token) {
-    appendOutput("Nhập ADMIN_TOKEN để tải dữ liệu.");
+  if (!state.authenticated) {
+    showLogin();
     return;
   }
 
@@ -255,13 +316,13 @@ async function streamLog(serviceId) {
 }
 
 function connectRealtime() {
-  if (!state.token) {
+  if (!state.authenticated) {
     return;
   }
 
   state.socket?.close();
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  state.socket = new WebSocket(`${protocol}//${window.location.host}/ui?token=${encodeURIComponent(state.token)}`);
+  state.socket = new WebSocket(`${protocol}//${window.location.host}/ui`);
 
   state.socket.addEventListener("open", () => appendOutput("[realtime] connected"));
   state.socket.addEventListener("close", () => appendOutput("[realtime] disconnected"));
@@ -325,5 +386,4 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-connectRealtime();
-void refresh();
+void checkSession();

@@ -1,7 +1,7 @@
 import { IncomingMessage } from "node:http";
 import WebSocket from "ws";
 import { ServerConfig } from "./config";
-import { isAdminToken } from "./auth";
+import { isAdminToken, isValidSessionCookie } from "./auth";
 
 export interface RealtimeEvent {
   type: string;
@@ -17,7 +17,7 @@ export class RealtimeHub {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
     const token = url.searchParams.get("token");
 
-    if (!isAdminToken(token, this.config)) {
+    if (!isAdminToken(token, this.config) && !isValidSessionCookie(request.headers.cookie, this.config)) {
       socket.close(1008, "Unauthorized");
       return;
     }
