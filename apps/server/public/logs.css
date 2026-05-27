@@ -100,8 +100,9 @@ body.logs-page {
   display: grid;
   flex: 1;
   gap: 14px;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  grid-template-columns: 1fr;
   padding: 16px 18px 24px;
+  width: 100%;
 }
 
 .log-tile {
@@ -110,9 +111,11 @@ body.logs-page {
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  min-height: 200px;
+  min-height: 220px;
+  outline: none;
   padding: 14px;
   text-align: left;
   transition:
@@ -120,6 +123,11 @@ body.logs-page {
     box-shadow 160ms ease,
     transform 160ms ease;
   width: 100%;
+}
+
+.log-tile:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 18%);
 }
 
 .log-tile:hover {
@@ -140,8 +148,10 @@ body.logs-page {
 .log-tile-head {
   align-items: flex-start;
   display: flex;
+  flex: 0 0 auto;
   gap: 10px;
   justify-content: space-between;
+  width: 100%;
 }
 
 .log-tile-title {
@@ -161,24 +171,30 @@ body.logs-page {
 .log-tile-preview {
   background: #0f172a;
   border-radius: 10px;
+  box-sizing: border-box;
   color: #e2e8f0;
-  flex: 1;
+  display: block;
+  flex: 1 1 auto;
   font: 11px/1.5 ui-monospace, Consolas, monospace;
+  height: 140px;
   margin: 0;
-  max-height: 150px;
-  min-height: 120px;
+  max-height: 140px;
+  min-height: 140px;
   overflow: hidden;
   padding: 10px 12px;
   white-space: pre-wrap;
+  width: 100%;
   word-break: break-word;
 }
 
 .log-tile-foot {
   color: var(--muted);
   display: flex;
+  flex: 0 0 auto;
   font-size: 11px;
   font-weight: 600;
   justify-content: space-between;
+  width: 100%;
 }
 
 .log-modal-root {
@@ -282,6 +298,12 @@ body.logs-page {
   word-break: break-word;
 }
 
+@media (min-width: 768px) {
+  .logs-grid {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  }
+}
+
 @media (min-width: 900px) {
   .log-modal-root {
     padding: 20px;
@@ -338,8 +360,20 @@ body.logs-page {
   }
 
   .logs-grid {
-    grid-template-columns: 1fr;
+    gap: 12px;
     padding: 12px;
+  }
+
+  .log-tile {
+    min-height: 210px;
+    padding: 12px;
+  }
+
+  .log-tile-preview {
+    font-size: 10px;
+    height: 128px;
+    max-height: 128px;
+    min-height: 128px;
   }
 
   .log-modal-header-actions {

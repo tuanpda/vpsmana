@@ -127,11 +127,12 @@ async function restartMonitor() {
 }
 
 function createLogTile(entry) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "log-tile";
-  button.dataset.serviceId = entry.serviceId;
-  button.innerHTML = `
+  const tile = document.createElement("article");
+  tile.className = "log-tile";
+  tile.dataset.serviceId = entry.serviceId;
+  tile.tabIndex = 0;
+  tile.setAttribute("role", "button");
+  tile.innerHTML = `
     <div class="log-tile-head">
       <div>
         <p class="log-tile-title">${escapeHtml(entry.label)}</p>
@@ -146,9 +147,15 @@ function createLogTile(entry) {
     </div>
   `;
 
-  button.addEventListener("click", () => openLogModal(entry.serviceId));
-  entry.tile = button;
-  return button;
+  tile.addEventListener("click", () => openLogModal(entry.serviceId));
+  tile.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openLogModal(entry.serviceId);
+    }
+  });
+  entry.tile = tile;
+  return tile;
 }
 
 async function startStreamsInBatches(entries) {
