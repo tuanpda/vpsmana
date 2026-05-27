@@ -1,5 +1,5 @@
 const MAX_BUFFER_CHARS = 120_000;
-const PREVIEW_LINES = 8;
+const PREVIEW_LINES = 16;
 const STREAM_BATCH_SIZE = 4;
 
 const state = {

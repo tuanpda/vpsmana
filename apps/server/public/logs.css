@@ -114,7 +114,6 @@ body.logs-page {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 220px;
   outline: none;
   padding: 14px;
   text-align: left;
@@ -175,11 +174,11 @@ body.logs-page {
   color: #e2e8f0;
   display: block;
   flex: 1 1 auto;
-  font: 11px/1.5 ui-monospace, Consolas, monospace;
-  height: 140px;
+  font: 11px/1.45 ui-monospace, Consolas, monospace;
+  height: clamp(200px, 32vh, 280px);
   margin: 0;
-  max-height: 140px;
-  min-height: 140px;
+  max-height: clamp(200px, 32vh, 280px);
+  min-height: 200px;
   overflow: hidden;
   padding: 10px 12px;
   white-space: pre-wrap;
@@ -302,6 +301,12 @@ body.logs-page {
   .logs-grid {
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   }
+
+  .log-tile-preview {
+    height: 260px;
+    max-height: 260px;
+    min-height: 260px;
+  }
 }
 
 @media (min-width: 900px) {
@@ -365,15 +370,14 @@ body.logs-page {
   }
 
   .log-tile {
-    min-height: 210px;
     padding: 12px;
   }
 
   .log-tile-preview {
     font-size: 10px;
-    height: 128px;
-    max-height: 128px;
-    min-height: 128px;
+    height: 200px;
+    max-height: 200px;
+    min-height: 200px;
   }
 
   .log-modal-header-actions {
