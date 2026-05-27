@@ -261,6 +261,62 @@ main {
   justify-content: space-between;
 }
 
+.servers-panel .panel-header {
+  align-items: center;
+}
+
+.logs-monitor-btn {
+  align-items: center;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 52%, #0891b2 100%);
+  border-radius: 12px;
+  box-shadow:
+    0 10px 24px rgb(37 99 235 / 28%),
+    inset 0 1px 0 rgb(255 255 255 / 18%);
+  color: #fff;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 9px;
+  letter-spacing: -0.01em;
+  min-height: 42px;
+  padding: 10px 18px;
+  text-decoration: none;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
+  white-space: nowrap;
+}
+
+.logs-monitor-btn:hover {
+  box-shadow:
+    0 14px 28px rgb(37 99 235 / 34%),
+    inset 0 1px 0 rgb(255 255 255 / 22%);
+  color: #fff;
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.logs-monitor-btn:active {
+  transform: translateY(0);
+}
+
+.logs-monitor-btn__icon {
+  align-items: center;
+  background: rgb(255 255 255 / 16%);
+  border-radius: 8px;
+  display: grid;
+  flex: 0 0 auto;
+  height: 30px;
+  place-items: center;
+  width: 30px;
+}
+
+.logs-monitor-btn__icon svg {
+  display: block;
+}
+
 .bootstrap-form {
   display: grid;
   gap: 14px;
@@ -790,6 +846,15 @@ main {
 
   .metric-grid {
     grid-template-columns: 1fr;
+  }
+
+  .servers-panel .panel-header {
+    align-items: stretch;
+  }
+
+  .logs-monitor-btn {
+    justify-content: center;
+    width: 100%;
   }
 
   .form-actions,

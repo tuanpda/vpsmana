@@ -49,7 +49,14 @@
               <h2>Servers &amp; Services</h2>
               <p class="muted">Danh sách VPS đã cài agent và các PM2 service đang chạy.</p>
             </div>
-            <a class="secondary logs-monitor-link" href="/logs.html">Giám sát log PM2</a>
+            <a class="logs-monitor-btn" href="/logs.html">
+              <span class="logs-monitor-btn__icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 6h16M4 10h16M4 14h10M4 18h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </span>
+              Giám sát log PM2
+            </a>
           </div>
           <div id="servers" class="server-list"></div>
         </section>

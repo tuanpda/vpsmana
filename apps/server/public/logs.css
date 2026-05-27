@@ -265,11 +265,6 @@ body.logs-page {
   word-break: break-word;
 }
 
-.logs-monitor-link {
-  text-decoration: none;
-  white-space: nowrap;
-}
-
 @media (min-width: 900px) {
   .log-modal-root {
     padding: 20px;
