@@ -115,25 +115,78 @@ button.danger:hover {
 
 .topbar {
   align-items: center;
-  background: rgb(255 255 255 / 92%);
-  backdrop-filter: blur(12px);
+  background: rgb(255 255 255 / 94%);
+  backdrop-filter: blur(14px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
-  display: flex;
-  gap: 20px;
-  justify-content: space-between;
-  padding: 16px 20px;
+  display: grid;
+  gap: 14px 18px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 14px 18px;
   position: sticky;
-  top: 16px;
+  top: max(12px, env(safe-area-inset-top, 0px));
   z-index: 20;
 }
 
 .brand {
   align-items: center;
   display: flex;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
+}
+
+.brand-copy {
+  min-width: 0;
+}
+
+.brand-title-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.brand-tagline {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 3px 0 0;
+}
+
+.status-chip {
+  align-items: center;
+  background: var(--success-soft);
+  border: 1px solid #a7f3d0;
+  border-radius: 999px;
+  color: var(--success);
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  gap: 6px;
+  letter-spacing: 0.04em;
+  padding: 4px 10px 4px 8px;
+  text-transform: uppercase;
+}
+
+.status-dot {
+  animation: status-pulse 2.4s ease-in-out infinite;
+  background: var(--success);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgb(5 150 105 / 18%);
+  height: 7px;
+  width: 7px;
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
 }
 
 .brand-mark {
@@ -171,29 +224,69 @@ button.danger:hover {
   margin: 4px 0 0;
 }
 
-.topbar-actions {
+.topbar-toolbar {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
 }
 
-.session-box {
+.topbar-btn {
   align-items: center;
-  background: var(--success-soft);
-  border: 1px solid #a7f3d0;
-  border-radius: 999px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 8px 10px 8px 14px;
-}
-
-.session-box span {
-  color: var(--success);
+  border-radius: 11px;
+  cursor: pointer;
+  display: inline-flex;
   font-size: 13px;
   font-weight: 700;
+  gap: 7px;
+  justify-content: center;
+  line-height: 1;
+  min-height: 40px;
+  padding: 0 14px;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease,
+    color 160ms ease;
+}
+
+.topbar-btn-icon {
+  flex: 0 0 auto;
+}
+
+.topbar-btn--primary {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border: 0;
+  box-shadow: 0 8px 18px rgb(37 99 235 / 24%);
+  color: #fff;
+}
+
+.topbar-btn--primary:hover {
+  box-shadow: 0 12px 22px rgb(37 99 235 / 30%);
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+}
+
+.topbar-btn--ghost {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  box-shadow: none;
+  color: var(--text-secondary);
+}
+
+.topbar-btn--ghost:hover {
+  background: var(--surface-muted);
+  border-color: #94a3b8;
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.topbar-btn--logout:hover {
+  background: var(--danger-soft);
+  border-color: #fecaca;
+  color: #b91c1c;
 }
 
 main {
@@ -819,24 +912,50 @@ main {
   }
 }
 
+@media (min-width: 900px) {
+  .topbar-btn--ghost:not(.topbar-btn--logout) {
+    padding: 0;
+    width: 40px;
+  }
+
+  .topbar-btn--ghost:not(.topbar-btn--logout) .topbar-btn-text {
+    display: none;
+  }
+}
+
 @media (max-width: 820px) {
   .page-shell {
     padding: 12px;
   }
 
   .topbar {
-    align-items: stretch;
-    flex-direction: column;
+    grid-template-columns: 1fr;
+    padding: 12px 14px;
   }
 
-  .topbar-actions {
+  .brand-tagline {
+    display: none;
+  }
+
+  .topbar-toolbar {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
   }
 
-  .topbar-actions > button,
-  .session-box,
-  .session-box button {
+  .topbar-btn--primary {
+    grid-column: 1 / -1;
+    min-height: 44px;
+  }
+
+  .topbar-btn {
+    min-height: 42px;
     width: 100%;
+  }
+
+  .topbar-btn-text {
+    display: inline;
   }
 
   .summary-grid,

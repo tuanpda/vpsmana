@@ -24,19 +24,37 @@
       <header class="topbar">
         <div class="brand">
           <div class="brand-mark">VM</div>
-          <div>
-            <h1>VPS Manager</h1>
-            <p>Theo dõi VPS, PM2 service và thao tác deploy an toàn.</p>
+          <div class="brand-copy">
+            <div class="brand-title-row">
+              <h1>VPS Manager</h1>
+              <span class="status-chip" title="Phiên đăng nhập hợp lệ">
+                <span class="status-dot" aria-hidden="true"></span>
+                Online
+              </span>
+            </div>
+            <p class="brand-tagline">Theo dõi VPS, PM2 service và deploy an toàn.</p>
           </div>
         </div>
-        <div class="topbar-actions">
-          <button id="openInstallModalButton" class="secondary" type="button">+ Thêm VPS</button>
-          <button id="refreshButton" class="secondary" type="button">Refresh</button>
-          <div class="session-box">
-            <span>Đã đăng nhập</span>
-            <button id="logoutButton" class="secondary" type="button">Đăng xuất</button>
-          </div>
-        </div>
+        <nav class="topbar-toolbar" aria-label="Thao tác nhanh">
+          <button id="openInstallModalButton" class="topbar-btn topbar-btn--primary" type="button">
+            <svg class="topbar-btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+            </svg>
+            <span>Thêm VPS</span>
+          </button>
+          <button id="refreshButton" class="topbar-btn topbar-btn--ghost" type="button" title="Làm mới danh sách">
+            <svg class="topbar-btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="topbar-btn-text">Refresh</span>
+          </button>
+          <button id="logoutButton" class="topbar-btn topbar-btn--ghost topbar-btn--logout" type="button" title="Đăng xuất">
+            <svg class="topbar-btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M15 12H3m0 0 4-4m-4 4 4 4M9 5H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="topbar-btn-text">Thoát</span>
+          </button>
+        </nav>
       </header>
 
       <main>
