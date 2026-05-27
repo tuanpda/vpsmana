@@ -150,6 +150,13 @@ export function registerRoutes(
         }
       });
     } else {
+      await prisma.server.deleteMany({
+        where: {
+          ipAddress,
+          id: { not: server.id }
+        }
+      });
+
       server = await prisma.server.update({
         where: { id: server.id },
         data: {
@@ -244,6 +251,8 @@ export function registerRoutes(
 
   app.delete<{ Params: { id: string } }>("/api/servers/:id", async (request, reply) => {
     const actor = requireApiRole(request, config, ["ADMIN"]);
+
+    agentGateway.removeServer(request.params.id);
 
     await prisma.server.delete({
       where: { id: request.params.id }

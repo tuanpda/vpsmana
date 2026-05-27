@@ -43,13 +43,17 @@ bootstrapForm.addEventListener("submit", (event) => {
 centralUrlInput.addEventListener("input", updateCentralUrlWarning);
 
 async function api(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  const hasBody = options.body !== undefined && options.body !== null;
+
+  if (hasBody && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const response = await fetch(path, {
     ...options,
     credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {})
-    }
+    headers: hasBody || Object.keys(headers).length > 0 ? headers : undefined
   });
 
   if (!response.ok) {
@@ -141,11 +145,17 @@ async function deleteServer(serverId, serverName) {
     return;
   }
 
+  const previousServers = state.servers;
+  state.servers = state.servers.filter((server) => server.id !== serverId);
+  render();
+
   try {
     await api(`/api/servers/${serverId}`, { method: "DELETE" });
     appendOutput(`[deleted] ${serverName}`);
-    await refresh();
   } catch (error) {
+    state.servers = previousServers;
+    render();
+    alert(`Không xóa được VPS: ${error.message}`);
     appendOutput(`[delete failed] ${error.message}`);
   }
 }

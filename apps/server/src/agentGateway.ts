@@ -127,6 +127,18 @@ export class AgentGateway {
     return this.connections.get(serverId)?.socket.readyState === WebSocket.OPEN;
   }
 
+  removeServer(serverId: string): void {
+    const connection = this.connections.get(serverId);
+    if (!connection) {
+      return;
+    }
+
+    this.connections.delete(serverId);
+    if (connection.socket.readyState === WebSocket.OPEN || connection.socket.readyState === WebSocket.CONNECTING) {
+      connection.socket.close(1000, "Server removed");
+    }
+  }
+
   sendCommand(serverId: string, command: DispatchableCommand): boolean {
     const connection = this.connections.get(serverId);
 
