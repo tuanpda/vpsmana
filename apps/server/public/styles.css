@@ -152,7 +152,6 @@ button.danger:hover {
 }
 
 .topbar h1,
-.hero-card h2,
 .panel-header h2,
 .server-row h3 {
   color: var(--text);
@@ -165,7 +164,6 @@ button.danger:hover {
 }
 
 .topbar p,
-.hero-card p,
 .panel-header p,
 .hint,
 .muted {
