@@ -36,6 +36,12 @@ interface RemoteExecResult {
   code: number;
 }
 
+interface RuntimePaths {
+  node: string;
+  npm: string;
+  pm2: string;
+}
+
 const AGENT_FILES = ["commands.js", "config.js", "index.js", "logs.js", "metrics.js", "pm2.js"];
 
 export async function bootstrapVpsAgent(
@@ -63,13 +69,7 @@ export async function bootstrapVpsAgent(
     logs.push(`Prepared ${installDir}`);
 
     const sftp = await openSftp(conn);
-    await uploadAgentBundle(sftp, agentDistDir, installDir, {
-      name: input.name?.trim() || input.ipAddress,
-      token: agentToken,
-      centralUrl,
-      installDir,
-      serviceUser
-    });
+    await uploadAgentBundle(sftp, agentDistDir, installDir);
     logs.push("Uploaded agent bundle");
 
     await runRemote(conn, `chown -R ${shellQuote(serviceUser)}:${shellQuote(serviceUser)} ${shellQuote(installDir)}`, {
@@ -78,10 +78,26 @@ export async function bootstrapVpsAgent(
       username: input.sshUser
     });
 
-    const installDependenciesCommand =
-      serviceUser === "root"
-        ? `cd ${shellQuote(installDir)} && npm install --omit=dev`
-        : `sudo -u ${shellQuote(serviceUser)} -H bash -lc ${shellQuote(`cd ${shellQuote(installDir)} && npm install --omit=dev`)}`;
+    const runtimePaths = await detectRuntimePaths(conn, serviceUser, {
+      sudo: input.sshUser !== "root",
+      sudoPassword: input.sudoPassword || input.password,
+      username: input.sshUser
+    });
+    logs.push(`Detected runtime: node=${runtimePaths.node}, npm=${runtimePaths.npm}, pm2=${runtimePaths.pm2}`);
+
+    await uploadSystemdService(sftp, installDir, {
+      name: input.name?.trim() || input.ipAddress,
+      token: agentToken,
+      centralUrl,
+      installDir,
+      serviceUser,
+      runtimePaths
+    });
+
+    const installDependenciesCommand = runAsLoginUser(
+      serviceUser,
+      `cd ${shellQuote(installDir)} && ${shellQuote(runtimePaths.npm)} install --omit=dev`
+    );
 
     await runRemote(conn, installDependenciesCommand, {
       sudo: input.sshUser !== "root",
@@ -181,6 +197,17 @@ function openSftp(conn: Client): Promise<SFTPWrapper> {
 async function uploadAgentBundle(
   sftp: SFTPWrapper,
   agentDistDir: string,
+  installDir: string
+): Promise<void> {
+  for (const file of AGENT_FILES) {
+    await fastPut(sftp, path.join(agentDistDir, file), `${installDir}/${file}`);
+  }
+
+  await writeRemoteFile(sftp, `${installDir}/package.json`, buildRemotePackageJson());
+}
+
+async function uploadSystemdService(
+  sftp: SFTPWrapper,
   installDir: string,
   options: {
     name: string;
@@ -188,13 +215,9 @@ async function uploadAgentBundle(
     centralUrl: string;
     installDir: string;
     serviceUser: string;
+    runtimePaths: RuntimePaths;
   }
 ): Promise<void> {
-  for (const file of AGENT_FILES) {
-    await fastPut(sftp, path.join(agentDistDir, file), `${installDir}/${file}`);
-  }
-
-  await writeRemoteFile(sftp, `${installDir}/package.json`, buildRemotePackageJson());
   await writeRemoteFile(sftp, `${installDir}/vps-manager-agent.service`, buildSystemdService(options));
 }
 
@@ -264,6 +287,41 @@ function runRemote(conn: Client, script: string, options: RemoteExecOptions): Pr
   });
 }
 
+async function detectRuntimePaths(conn: Client, serviceUser: string, options: RemoteExecOptions): Promise<RuntimePaths> {
+  const result = await runRemote(
+    conn,
+    runAsLoginUser(
+      serviceUser,
+      [
+        "command -v node",
+        "command -v npm",
+        "command -v pm2"
+      ].join(" && ")
+    ),
+    options
+  );
+  const [node, npm, pm2] = result.stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (!node || !npm || !pm2) {
+    throw new Error(
+      `Could not detect node/npm/pm2 for user ${serviceUser}. stdout=${result.stdout.trim()} stderr=${result.stderr.trim()}`
+    );
+  }
+
+  return { node, npm, pm2 };
+}
+
+function runAsLoginUser(serviceUser: string, command: string): string {
+  if (serviceUser === "root") {
+    return `bash -lc ${shellQuote(command)}`;
+  }
+
+  return `sudo -iu ${shellQuote(serviceUser)} bash -lc ${shellQuote(command)}`;
+}
+
 function normalizeCentralUrl(value: string): string {
   if (value.startsWith("https://")) {
     return `wss://${value.slice("https://".length).replace(/\/$/, "")}`;
@@ -302,7 +360,10 @@ function buildSystemdService(options: {
   centralUrl: string;
   installDir: string;
   serviceUser: string;
+  runtimePaths: RuntimePaths;
 }): string {
+  const nodeDir = path.posix.dirname(options.runtimePaths.node);
+
   return `[Unit]
 Description=VPS Manager Agent
 After=network-online.target
@@ -316,7 +377,8 @@ Environment="CENTRAL_URL=${systemdEscape(options.centralUrl)}"
 Environment="AGENT_TOKEN=${systemdEscape(options.token)}"
 Environment="AGENT_NAME=${systemdEscape(options.name)}"
 Environment="HEARTBEAT_INTERVAL_MS=15000"
-ExecStart=/bin/bash -lc "cd ${systemdEscape(options.installDir)} && exec node index.js"
+Environment="PATH=${systemdEscape(`${nodeDir}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`)}"
+ExecStart=/bin/bash -lc "cd ${systemdEscape(options.installDir)} && exec ${systemdEscape(options.runtimePaths.node)} index.js"
 Restart=always
 RestartSec=5
 User=${options.serviceUser}
