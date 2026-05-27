@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>PM2 Log Monitor — VPS Manager</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/logs.css" />
+  </head>
+  <body class="logs-page">
+    <div class="logs-shell">
+      <header class="logs-topbar">
+        <div class="logs-topbar-start">
+          <a class="brand-mark logs-brand" href="/" title="Về dashboard">VM</a>
+          <div>
+            <span class="section-kicker">Live monitor</span>
+            <h1>PM2 Log Monitor</h1>
+            <p class="muted">Log realtime của mọi tiến trình PM2 đang chạy trên các VPS online.</p>
+          </div>
+        </div>
+        <div class="logs-topbar-actions">
+          <span id="logsStatus" class="logs-status">Đang tải...</span>
+          <button id="logsRefreshButton" class="secondary" type="button">Làm mới</button>
+          <a class="secondary logs-link-btn" href="/">Dashboard</a>
+        </div>
+      </header>
+
+      <div id="logsEmpty" class="logs-empty" hidden>
+        <strong>Chưa có tiến trình PM2 đang chạy</strong>
+        <span>Chỉ stream log cho service RUNNING trên VPS ONLINE.</span>
+        <a class="secondary logs-link-btn" href="/">Về dashboard</a>
+      </div>
+
+      <div id="logsGrid" class="logs-grid" hidden></div>
+    </div>
+
+    <div id="logModalRoot" class="log-modal-root" hidden>
+      <div class="log-modal-backdrop" data-log-modal-dismiss="true" aria-hidden="true"></div>
+      <div class="log-modal-card" role="dialog" aria-modal="true" aria-labelledby="logModalTitle">
+        <header class="log-modal-header">
+          <div>
+            <span id="logModalKicker" class="section-kicker">PM2 log</span>
+            <h2 id="logModalTitle"></h2>
+            <p id="logModalMeta" class="muted"></p>
+          </div>
+          <div class="log-modal-header-actions">
+            <label class="log-autoscroll">
+              <input id="logModalAutoscroll" type="checkbox" checked />
+              Tự cuộn
+            </label>
+            <button id="logModalClear" class="secondary" type="button">Clear</button>
+            <button id="logModalClose" class="secondary" type="button">Đóng</button>
+          </div>
+        </header>
+        <pre id="logModalOutput" class="log-modal-output"></pre>
+      </div>
+    </div>
+
+    <script src="/common.js"></script>
+    <script src="/logs.js"></script>
+  </body>
+</html>

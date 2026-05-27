@@ -256,6 +256,7 @@ main {
 .panel-header {
   align-items: flex-start;
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: space-between;
 }
