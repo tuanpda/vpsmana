@@ -216,25 +216,42 @@ body.logs-page {
 }
 
 .log-modal-header {
-  align-items: flex-start;
   border-bottom: 1px solid var(--border);
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 12px;
-  justify-content: space-between;
   padding: 14px 16px;
+}
+
+.log-modal-head {
+  min-width: 0;
 }
 
 .log-modal-header h2 {
   font-size: clamp(17px, 2.5vw, 22px);
   margin: 0;
+  word-break: break-word;
 }
 
-.log-modal-header-actions {
+.log-modal-actions {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  justify-content: flex-start;
+  padding: 10px;
+  width: 100%;
+}
+
+.log-modal-actions button {
+  flex: 1 1 auto;
+  min-width: 72px;
+}
+
+.log-modal-tools {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  justify-content: flex-end;
 }
 
 .log-autoscroll {
@@ -286,6 +303,24 @@ body.logs-page {
 }
 
 @media (max-width: 640px) {
+  .log-modal-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .log-modal-actions button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .log-modal-tools {
+    justify-content: stretch;
+  }
+
+  .log-modal-tools button {
+    flex: 1;
+  }
+
   .logs-topbar {
     padding: 12px 14px;
   }

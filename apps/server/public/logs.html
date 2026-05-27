@@ -39,12 +39,20 @@
       <div class="log-modal-backdrop" data-log-modal-dismiss="true" aria-hidden="true"></div>
       <div class="log-modal-card" role="dialog" aria-modal="true" aria-labelledby="logModalTitle">
         <header class="log-modal-header">
-          <div>
+          <div class="log-modal-head">
             <span id="logModalKicker" class="section-kicker">PM2 log</span>
             <h2 id="logModalTitle"></h2>
             <p id="logModalMeta" class="muted"></p>
           </div>
-          <div class="log-modal-header-actions">
+          <div id="logModalActions" class="service-actions log-modal-actions" role="toolbar" aria-label="Thao tác service">
+            <button type="button" data-action="PM2_RESTART">restart</button>
+            <button class="secondary" type="button" data-action="PM2_RELOAD">reload</button>
+            <button class="secondary" type="button" data-action="GIT_PULL">pull</button>
+            <button class="secondary" type="button" data-action="DEPLOY">deploy</button>
+            <button class="secondary" type="button" data-action="LOG_RESTART">log</button>
+            <button class="danger" type="button" data-action="PM2_STOP">stop</button>
+          </div>
+          <div class="log-modal-tools">
             <label class="log-autoscroll">
               <input id="logModalAutoscroll" type="checkbox" checked />
               Tự cuộn

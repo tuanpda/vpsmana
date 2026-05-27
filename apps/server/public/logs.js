@@ -21,8 +21,17 @@ const logModalOutput = document.getElementById("logModalOutput");
 const logModalAutoscroll = document.getElementById("logModalAutoscroll");
 const logModalClear = document.getElementById("logModalClear");
 const logModalClose = document.getElementById("logModalClose");
+const logModalActions = document.getElementById("logModalActions");
 
 logsRefreshButton.addEventListener("click", () => void restartMonitor());
+logModalActions.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-action]");
+  if (!button || button.disabled) {
+    return;
+  }
+
+  void runServiceAction(button.dataset.action);
+});
 logModalClose.addEventListener("click", closeLogModal);
 logModalRoot.querySelector("[data-log-modal-dismiss]").addEventListener("click", closeLogModal);
 logModalClear.addEventListener("click", () => clearStreamBuffer(state.activeServiceId));
@@ -81,6 +90,7 @@ async function restartMonitor() {
           serverName: server.name,
           serviceName: service.name,
           pm2Name: service.pm2Name,
+          sourcePath: service.sourcePath || "",
           label: `${server.name} / ${service.pm2Name}`,
           text: "",
           streamId: null,
@@ -215,8 +225,25 @@ function connectRealtime() {
         }
         state.streamIdToServiceId.delete(message.payload.streamId);
       }
+      return;
+    }
+
+    if (message.type === "command.output" && state.activeServiceId) {
+      appendChunk(state.activeServiceId, message.payload.chunk || "");
+      return;
+    }
+
+    if (message.type === "command.finished" && state.activeServiceId) {
+      appendChunk(
+        state.activeServiceId,
+        `\n[command finished] ${message.payload.status || "unknown"}\n`
+      );
     }
   });
+}
+
+function stripAnsi(text) {
+  return text.replace(/\u001b\[[0-9;]*m/g, "");
 }
 
 function appendChunk(serviceId, chunk) {
@@ -225,7 +252,7 @@ function appendChunk(serviceId, chunk) {
     return;
   }
 
-  entry.text += chunk;
+  entry.text += stripAnsi(chunk);
   if (entry.text.length > MAX_BUFFER_CHARS) {
     entry.text = entry.text.slice(entry.text.length - MAX_BUFFER_CHARS);
   }
@@ -285,8 +312,13 @@ function openLogModal(serviceId) {
 
   state.activeServiceId = serviceId;
   logModalTitle.textContent = entry.label;
-  logModalMeta.textContent = `${entry.serviceName} · ${entry.serverName} · ${entry.pm2Name}`;
+  const metaParts = [entry.serviceName, entry.serverName, entry.pm2Name];
+  if (entry.sourcePath) {
+    metaParts.push(entry.sourcePath);
+  }
+  logModalMeta.textContent = metaParts.join(" · ");
   logModalOutput.textContent = entry.text || "Chưa có dữ liệu log.";
+  setModalActionsBusy(false);
   logModalRoot.hidden = false;
   document.body.style.overflow = "hidden";
 
@@ -335,4 +367,52 @@ function scrollModalToEnd() {
 function setStatus(text, isLive) {
   logsStatus.textContent = text;
   logsStatus.classList.toggle("is-live", isLive);
+}
+
+function setModalActionsBusy(isBusy) {
+  for (const button of logModalActions.querySelectorAll("button")) {
+    button.disabled = isBusy;
+  }
+}
+
+async function runServiceAction(action) {
+  const serviceId = state.activeServiceId;
+  const entry = serviceId ? state.streams.get(serviceId) : null;
+
+  if (!entry) {
+    return;
+  }
+
+  if (action === "LOG_RESTART") {
+    setModalActionsBusy(true);
+    try {
+      appendChunk(serviceId, `\n[log] restarting stream ${new Date().toLocaleTimeString()}\n`);
+      if (entry.streamId) {
+        await api(`/api/servers/${entry.serverId}/logs/${entry.streamId}/stop`, {
+          method: "POST"
+        }).catch(() => undefined);
+        state.streamIdToServiceId.delete(entry.streamId);
+        entry.streamId = null;
+      }
+      await startStream(entry);
+    } finally {
+      setModalActionsBusy(false);
+    }
+    return;
+  }
+
+  setModalActionsBusy(true);
+  appendChunk(serviceId, `\n[${action}] đang gửi lệnh...\n`);
+
+  try {
+    const command = await api(`/api/services/${serviceId}/actions`, {
+      method: "POST",
+      body: JSON.stringify({ action })
+    });
+    appendChunk(serviceId, `[${action}] queued command=${command.id}\n`);
+  } catch (error) {
+    appendChunk(serviceId, `[${action} failed] ${error.message}\n`);
+  } finally {
+    setModalActionsBusy(false);
+  }
 }
