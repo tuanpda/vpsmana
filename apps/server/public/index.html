@@ -10,13 +10,34 @@
   </head>
   <body>
     <section id="loginScreen" class="login-screen">
-      <div class="login-card">
-        <div class="brand-mark">VM</div>
-        <form id="loginForm" class="login-form">
-          <input id="loginTokenInput" type="password" autocomplete="current-password" aria-label="Access token" required />
-          <button type="submit">Đăng nhập</button>
-        </form>
-        <p id="loginError" class="login-error" hidden></p>
+      <div class="login-shell">
+        <aside class="login-brand-panel">
+          <div class="login-brand-mark">VM</div>
+          <h1>VPS Manager</h1>
+          <p>Central control plane for PM2 services, deployment actions, and live logs across your VPS fleet.</p>
+        </aside>
+        <div class="login-form-panel">
+          <header class="login-form-header">
+            <span class="login-kicker">Secure access</span>
+            <h2>Sign in</h2>
+            <p>Enter your administrator access token to open the dashboard.</p>
+          </header>
+          <form id="loginForm" class="login-form">
+            <label class="login-field">
+              <span>Access token</span>
+              <input
+                id="loginTokenInput"
+                type="password"
+                name="token"
+                autocomplete="current-password"
+                placeholder="Paste token here"
+                required
+              />
+            </label>
+            <button class="login-submit" type="submit">Sign in</button>
+          </form>
+          <p id="loginError" class="login-error" hidden></p>
+        </div>
       </div>
     </section>
 

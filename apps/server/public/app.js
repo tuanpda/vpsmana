@@ -192,7 +192,7 @@ async function login() {
     loginTokenInput.value = "";
     showApp();
   } catch (error) {
-    loginError.textContent = `Đăng nhập thất bại: ${error.message}`;
+    loginError.textContent = `Sign in failed: ${error.message}`;
     loginError.hidden = false;
   }
 }
