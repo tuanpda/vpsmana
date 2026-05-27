@@ -11,6 +11,9 @@ const loginTokenInput = document.getElementById("loginTokenInput");
 const loginError = document.getElementById("loginError");
 const logoutButton = document.getElementById("logoutButton");
 const refreshButton = document.getElementById("refreshButton");
+const openInstallModalButton = document.getElementById("openInstallModalButton");
+const installModalRoot = document.getElementById("installModalRoot");
+const closeInstallModalButton = document.getElementById("closeInstallModalButton");
 const clearOutputButton = document.getElementById("clearOutputButton");
 const bootstrapForm = document.getElementById("bootstrapForm");
 const bootstrapButtons = Array.from(document.querySelectorAll(".bootstrap-submit"));
@@ -28,6 +31,8 @@ const dialogCancel = document.getElementById("dialogCancel");
 const dialogConfirm = document.getElementById("dialogConfirm");
 
 let dialogResolver = null;
+let installModalOpen = false;
+let bootstrapBusy = false;
 
 centralUrlInput.value = window.location.origin;
 updateCentralUrlWarning();
@@ -41,6 +46,9 @@ logoutButton.addEventListener("click", () => {
 });
 
 refreshButton.addEventListener("click", () => void refresh());
+openInstallModalButton.addEventListener("click", () => openInstallModal());
+closeInstallModalButton.addEventListener("click", () => closeInstallModal());
+installModalRoot.querySelector("[data-install-dismiss]").addEventListener("click", () => closeInstallModal());
 clearOutputButton.addEventListener("click", () => {
   output.textContent = "";
 });
@@ -54,10 +62,42 @@ dialogCancel.addEventListener("click", () => closeDialog(false));
 dialogConfirm.addEventListener("click", () => closeDialog(true));
 dialogRoot.querySelector("[data-dialog-dismiss]").addEventListener("click", () => closeDialog(false));
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !dialogRoot.hidden) {
+  if (event.key !== "Escape") {
+    return;
+  }
+
+  if (!dialogRoot.hidden) {
     closeDialog(false);
+    return;
+  }
+
+  if (installModalOpen && !bootstrapBusy) {
+    closeInstallModal();
   }
 });
+
+function openInstallModal() {
+  installModalOpen = true;
+  installModalRoot.hidden = false;
+  document.body.style.overflow = "hidden";
+  bootstrapForm.querySelector('input[name="name"]')?.focus();
+}
+
+function closeInstallModal() {
+  if (bootstrapBusy) {
+    return;
+  }
+
+  installModalOpen = false;
+  installModalRoot.hidden = true;
+  if (dialogRoot.hidden) {
+    document.body.style.overflow = "";
+  }
+}
+
+function updatePageScrollLock() {
+  document.body.style.overflow = !dialogRoot.hidden || installModalOpen ? "hidden" : "";
+}
 
 function openDialog(options) {
   const {
@@ -82,7 +122,7 @@ function openDialog(options) {
   dialogCancel.textContent = cancelLabel;
   dialogConfirm.textContent = confirmLabel;
   dialogRoot.hidden = false;
-  document.body.style.overflow = "hidden";
+  updatePageScrollLock();
   dialogConfirm.focus();
 
   return new Promise((resolve) => {
@@ -96,7 +136,7 @@ function closeDialog(confirmed) {
   }
 
   dialogRoot.hidden = true;
-  document.body.style.overflow = "";
+  updatePageScrollLock();
   const resolve = dialogResolver;
   dialogResolver = null;
   resolve(confirmed);
@@ -291,6 +331,7 @@ async function bootstrapVps(formData) {
     bootstrapForm.reset();
     centralUrlInput.value = window.location.origin;
     updateCentralUrlWarning();
+    closeInstallModal();
     await refresh();
   } catch (error) {
     appendOutput(`[bootstrap failed] ${error.message}`);
@@ -303,14 +344,20 @@ async function bootstrapVps(formData) {
 }
 
 function setBootstrapBusy(isBusy) {
+  bootstrapBusy = isBusy;
+  installModalRoot.dataset.busy = isBusy ? "true" : "false";
+  closeInstallModalButton.disabled = isBusy;
+
   for (const button of bootstrapButtons) {
     button.disabled = isBusy;
     button.textContent = isBusy ? "Đang cài agent..." : "Cài agent vào VPS";
   }
 
+  openInstallModalButton.disabled = isBusy;
+
   bootstrapStatus.textContent = isBusy
     ? "Đang SSH vào VPS, upload agent và tạo systemd service..."
-    : "Sau khi bấm, theo dõi tiến trình ở Realtime Output bên dưới.";
+    : "Sau khi bấm, theo dõi tiến trình ở Realtime Output phía dưới.";
 }
 
 function updateCentralUrlWarning() {
@@ -354,7 +401,7 @@ function render() {
     ? state.servers.map(renderServer).join("")
     : `<div class="empty-state">
         <strong>Chưa có VPS nào</strong>
-        <span>Nhập thông tin SSH ở form phía trên rồi bấm "Cài agent vào VPS" để bắt đầu quản lý.</span>
+        <span>Bấm <strong>+ Thêm VPS</strong> trên thanh menu để cài agent và bắt đầu quản lý.</span>
       </div>`;
 
   for (const button of document.querySelectorAll("[data-action]")) {
