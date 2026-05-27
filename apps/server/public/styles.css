@@ -400,6 +400,20 @@ main {
   padding-bottom: 14px;
 }
 
+.server-card-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.server-card-actions button {
+  font-size: 12px;
+  min-height: 32px;
+  padding: 6px 10px;
+}
+
 .server-card h3 + p {
   margin: 4px 0 0;
 }

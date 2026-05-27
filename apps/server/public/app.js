@@ -71,7 +71,12 @@ async function api(path, options = {}) {
     throw error;
   }
 
-  return response.json();
+  if (response.status === 204) {
+    return null;
+  }
+
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
 }
 
 async function checkSession() {
@@ -129,6 +134,20 @@ function showLogin() {
   loginScreen.hidden = false;
   appShell.hidden = true;
   loginTokenInput.focus();
+}
+
+async function deleteServer(serverId, serverName) {
+  if (!confirm(`Xóa VPS "${serverName}" khỏi dashboard?`)) {
+    return;
+  }
+
+  try {
+    await api(`/api/servers/${serverId}`, { method: "DELETE" });
+    appendOutput(`[deleted] ${serverName}`);
+    await refresh();
+  } catch (error) {
+    appendOutput(`[delete failed] ${error.message}`);
+  }
 }
 
 async function bootstrapVps(formData) {
@@ -236,6 +255,12 @@ function render() {
       void runAction(button.dataset.serviceId, button.dataset.action);
     });
   }
+
+  for (const button of document.querySelectorAll("[data-delete-server]")) {
+    button.addEventListener("click", () => {
+      void deleteServer(button.dataset.deleteServer, button.dataset.serverName);
+    });
+  }
 }
 
 function summaryCard(label, value) {
@@ -257,7 +282,10 @@ function renderServer(server) {
           <h3>${escapeHtml(server.name)}</h3>
           <p class="muted">${escapeHtml(server.hostname || server.ipAddress || "unknown host")}</p>
         </div>
-        <span class="badge ${server.status.toLowerCase()}">${server.status}</span>
+        <div class="server-card-actions">
+          <span class="badge ${server.status.toLowerCase()}">${server.status}</span>
+          <button class="danger" type="button" data-delete-server="${server.id}" data-server-name="${escapeHtml(server.name).replaceAll('"', "&quot;")}">Xóa</button>
+        </div>
       </div>
       <div class="metric-grid">
         <div class="metric-tile"><span>CPU</span><strong>${latestMetric ? latestMetric.cpuPercent.toFixed(1) : "0"}%</strong></div>

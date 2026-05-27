@@ -132,31 +132,60 @@ export function registerRoutes(
 
     const token = generateToken();
     const name = body.name?.trim() || body.ipAddress?.trim() || "new-vps";
+    const ipAddress = body.ipAddress.trim();
 
-    const server = await prisma.server.create({
-      data: {
-        name,
-        hostname: body.name,
-        ipAddress: body.ipAddress,
-        agentTokenHash: hashToken(token),
-        audits: {
-          create: {
-            action: "server.bootstrap.start",
-            entity: "server",
-            metadata: {
-              actor: actor.label,
-              sshPort: body.sshPort ?? 22,
-              sshUser: body.sshUser,
-              serviceUser: body.serviceUser || body.sshUser
-            },
-            ipAddress: request.ip
-          }
+    let server = await prisma.server.findFirst({
+      where: { ipAddress }
+    });
+    const isNew = !server;
+
+    if (!server) {
+      server = await prisma.server.create({
+        data: {
+          name,
+          hostname: body.name,
+          ipAddress,
+          agentTokenHash: hashToken(token),
+          status: "OFFLINE"
         }
+      });
+    } else {
+      server = await prisma.server.update({
+        where: { id: server.id },
+        data: {
+          name,
+          hostname: body.name,
+          status: "OFFLINE"
+        }
+      });
+    }
+
+    await prisma.auditLog.create({
+      data: {
+        action: "server.bootstrap.start",
+        entity: "server",
+        entityId: server.id,
+        serverId: server.id,
+        metadata: {
+          actor: actor.label,
+          sshPort: body.sshPort ?? 22,
+          sshUser: body.sshUser,
+          serviceUser: body.serviceUser || body.sshUser,
+          reusedExisting: !isNew
+        },
+        ipAddress: request.ip
       }
     });
 
     try {
       const result = await bootstrapVpsAgent(body, token, config);
+
+      server = await prisma.server.update({
+        where: { id: server.id },
+        data: {
+          agentTokenHash: hashToken(token)
+        }
+      });
 
       await prisma.auditLog.create({
         data: {
@@ -185,6 +214,10 @@ export function registerRoutes(
       const message = error instanceof Error ? error.message : String(error);
       const logs = error instanceof BootstrapError ? error.logs : [];
 
+      if (isNew) {
+        await prisma.server.delete({ where: { id: server.id } });
+      }
+
       await prisma.auditLog.create({
         data: {
           action: "server.bootstrap.failed",
@@ -194,7 +227,8 @@ export function registerRoutes(
           metadata: {
             actor: actor.label,
             error: message,
-            logs
+            logs,
+            removedNewRecord: isNew
           },
           ipAddress: request.ip
         }
@@ -202,10 +236,32 @@ export function registerRoutes(
 
       return reply.code(500).send({
         error: message,
-        serverId: server.id,
+        serverId: isNew ? undefined : server.id,
         logs
       });
     }
+  });
+
+  app.delete<{ Params: { id: string } }>("/api/servers/:id", async (request, reply) => {
+    const actor = requireApiRole(request, config, ["ADMIN"]);
+
+    await prisma.server.delete({
+      where: { id: request.params.id }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        action: "server.delete",
+        entity: "server",
+        entityId: request.params.id,
+        metadata: {
+          actor: actor.label
+        },
+        ipAddress: request.ip
+      }
+    });
+
+    return reply.code(204).send();
   });
 
   app.get<{ Params: { id: string } }>("/api/servers/:id", async (request) => {
