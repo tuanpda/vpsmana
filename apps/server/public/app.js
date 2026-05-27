@@ -224,7 +224,8 @@ async function refresh() {
   }
 
   try {
-    state.servers = await api("/api/servers");
+    const list = await api("/api/servers");
+    state.servers = list.sort(compareServers);
     render();
   } catch (error) {
     appendOutput(`Không tải được dữ liệu: ${error.message}`);
@@ -263,8 +264,18 @@ function render() {
   }
 }
 
+function compareServers(a, b) {
+  if (a.status === "ONLINE" && b.status !== "ONLINE") {
+    return -1;
+  }
+  if (b.status === "ONLINE" && a.status !== "ONLINE") {
+    return 1;
+  }
+  return a.name.localeCompare(b.name);
+}
+
 function summaryCard(label, value) {
-  return `<div class="summary-card"><span class="muted">${label}</span><strong>${value}</strong></div>`;
+  return `<div class="summary-card"><span>${label}</span><strong>${value}</strong></div>`;
 }
 
 function renderServer(server) {
@@ -274,26 +285,37 @@ function renderServer(server) {
     ? `${formatBytes(Number(latestMetric.memoryUsed))} / ${formatBytes(Number(latestMetric.memoryTotal))}`
     : "Chưa có metric";
   const diskText = latestMetric?.diskPercent ? `${latestMetric.diskPercent.toFixed(1)}%` : "N/A";
+  const isOnline = server.status === "ONLINE";
+  const hostLine = [server.ipAddress, server.hostname].filter(Boolean).join(" · ") || "unknown host";
 
   return `
-    <article class="server-card">
-      <div class="metric-row">
+    <article class="server-row ${isOnline ? "is-online" : ""}">
+      <div class="server-row-header">
         <div>
           <h3>${escapeHtml(server.name)}</h3>
-          <p class="muted">${escapeHtml(server.hostname || server.ipAddress || "unknown host")}</p>
+          <div class="server-subtitle">${escapeHtml(hostLine)}</div>
         </div>
-        <div class="server-card-actions">
+        <div class="metric-grid">
+          <div class="metric-tile"><span>CPU</span><strong>${latestMetric ? latestMetric.cpuPercent.toFixed(1) : "0"}%</strong></div>
+          <div class="metric-tile"><span>RAM</span><strong>${memoryText}</strong></div>
+          <div class="metric-tile"><span>Disk</span><strong>${diskText}</strong></div>
+        </div>
+        <div class="server-header-actions">
           <span class="badge ${server.status.toLowerCase()}">${server.status}</span>
           <button class="danger" type="button" data-delete-server="${server.id}" data-server-name="${escapeHtml(server.name).replaceAll('"', "&quot;")}">Xóa</button>
         </div>
       </div>
-      <div class="metric-grid">
-        <div class="metric-tile"><span>CPU</span><strong>${latestMetric ? latestMetric.cpuPercent.toFixed(1) : "0"}%</strong></div>
-        <div class="metric-tile"><span>RAM</span><strong>${memoryText}</strong></div>
-        <div class="metric-tile"><span>Disk</span><strong>${diskText}</strong></div>
-      </div>
-      <div class="service-list">
-        ${services.map(renderService).join("") || '<p class="muted">Chưa phát hiện PM2 service.</p>'}
+      <div class="service-panel">
+        <div class="service-panel-title">PM2 Services (${services.length})</div>
+        <div class="service-scroll">
+          <div class="service-table">
+            ${
+              services.length
+                ? services.map(renderService).join("")
+                : '<div class="empty-state" style="min-height:80px;padding:16px"><span>Chưa phát hiện PM2 service</span></div>'
+            }
+          </div>
+        </div>
       </div>
     </article>
   `;
@@ -302,19 +324,19 @@ function renderServer(server) {
 function renderService(service) {
   return `
     <div class="service-row">
-      <div>
+      <div class="service-info">
         <strong>${escapeHtml(service.name)}</strong>
-        <div class="muted">${escapeHtml(service.pm2Name)} ${service.sourcePath ? `- ${escapeHtml(service.sourcePath)}` : ""}</div>
-        <div class="service-meta">
-          <span class="badge ${service.status.toLowerCase()}">${service.status}</span>
-          <span>${service.pid ? `PID ${service.pid}` : "No PID"}</span>
-          <span>${service.memoryBytes ? formatBytes(Number(service.memoryBytes)) : "Memory N/A"}</span>
-        </div>
+        <div class="service-path">${escapeHtml(service.pm2Name)}${service.sourcePath ? ` · ${escapeHtml(service.sourcePath)}` : ""}</div>
+      </div>
+      <div class="service-meta">
+        <span class="badge ${service.status.toLowerCase()}">${service.status}</span>
+        <span>${service.pid ? `PID ${service.pid}` : "No PID"}</span>
+        <span>${service.memoryBytes ? formatBytes(Number(service.memoryBytes)) : "—"}</span>
       </div>
       <div class="service-actions">
         <button data-service-id="${service.id}" data-action="PM2_RESTART">restart</button>
         <button class="secondary" data-service-id="${service.id}" data-action="PM2_RELOAD">reload</button>
-        <button class="secondary" data-service-id="${service.id}" data-action="GIT_PULL">git pull</button>
+        <button class="secondary" data-service-id="${service.id}" data-action="GIT_PULL">pull</button>
         <button class="secondary" data-service-id="${service.id}" data-action="DEPLOY">deploy</button>
         <button class="secondary" data-service-id="${service.id}" data-action="LOG_STREAM">log</button>
         <button class="danger" data-service-id="${service.id}" data-action="PM2_STOP">stop</button>
