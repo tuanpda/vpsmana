@@ -16,7 +16,8 @@ const ACTIONS_REQUIRING_SERVICE = new Set<CommandAction>([
   "GIT_PULL",
   "NPM_INSTALL",
   "NPM_BUILD",
-  "DEPLOY"
+  "DEPLOY",
+  "MANAGER_PULL_RESTART"
 ]);
 
 interface CreateServerBody {

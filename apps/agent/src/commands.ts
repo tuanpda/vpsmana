@@ -9,7 +9,8 @@ export type CommandAction =
   | "GIT_PULL"
   | "NPM_INSTALL"
   | "NPM_BUILD"
-  | "DEPLOY";
+  | "DEPLOY"
+  | "MANAGER_PULL_RESTART";
 
 export interface AgentCommand {
   commandId: string;
@@ -91,6 +92,13 @@ function buildCommandSpecs(command: AgentCommand): SpawnSpec[] {
         { command: "git", args: ["pull", "--ff-only"], cwd: service.sourcePath, timeoutMs },
         { command: "npm", args: ["install"], cwd: service.sourcePath, timeoutMs: 10 * 60_000 },
         { command: "npm", args: ["run", "build"], cwd: service.sourcePath, timeoutMs: 10 * 60_000 },
+        { command: "pm2", args: ["restart", service.pm2Name], timeoutMs }
+      ];
+    case "MANAGER_PULL_RESTART":
+      requirePm2Name(service);
+      requireSourcePath(service);
+      return [
+        { command: "git", args: ["pull", "--ff-only"], cwd: service.sourcePath, timeoutMs },
         { command: "pm2", args: ["restart", service.pm2Name], timeoutMs }
       ];
   }

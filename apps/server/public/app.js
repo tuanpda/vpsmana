@@ -496,10 +496,16 @@ async function resetOutputPanel() {
 }
 
 function renderService(service) {
+  const isManager = isVpsManagerService(service);
   const clientBuildButton =
-    isClientService(service) && service.sourcePath
+    !isManager && isClientService(service) && service.sourcePath
       ? `<button class="secondary" data-service-id="${service.id}" data-action="NPM_BUILD">build</button>`
       : "";
+  const deployButtons = isManager
+    ? `<button class="secondary" data-service-id="${service.id}" data-action="MANAGER_PULL_RESTART">pull&amp;build</button>`
+    : `<button class="secondary" data-service-id="${service.id}" data-action="GIT_PULL">pull</button>
+        <button class="secondary" data-service-id="${service.id}" data-action="DEPLOY">deploy</button>
+        ${clientBuildButton}`;
   const followingLog = isFollowingLog(service.id);
 
   return `
@@ -516,9 +522,7 @@ function renderService(service) {
       <div class="service-actions">
         <button data-service-id="${service.id}" data-action="PM2_RESTART">restart</button>
         <button class="secondary" data-service-id="${service.id}" data-action="PM2_RELOAD">reload</button>
-        <button class="secondary" data-service-id="${service.id}" data-action="GIT_PULL">pull</button>
-        <button class="secondary" data-service-id="${service.id}" data-action="DEPLOY">deploy</button>
-        ${clientBuildButton}
+        ${deployButtons}
         <button class="secondary ${followingLog ? "is-following" : ""}" data-service-id="${service.id}" data-action="LOG_STREAM">${followingLog ? "đang xem" : "log"}</button>
         <button class="danger" data-service-id="${service.id}" data-action="PM2_STOP">stop</button>
         <button class="danger secondary" data-service-id="${service.id}" data-action="PM2_DELETE">xóa</button>

@@ -23,6 +23,9 @@ const logModalClear = document.getElementById("logModalClear");
 const logModalClose = document.getElementById("logModalClose");
 const logModalActions = document.getElementById("logModalActions");
 const logModalBuildButton = document.getElementById("logModalBuildButton");
+const logModalPullButton = document.getElementById("logModalPullButton");
+const logModalDeployButton = document.getElementById("logModalDeployButton");
+const logModalManagerButton = document.getElementById("logModalManagerButton");
 
 logsRefreshButton.addEventListener("click", () => void restartMonitor());
 logModalActions.addEventListener("click", (event) => {
@@ -363,7 +366,11 @@ function openLogModal(serviceId) {
   }
 
   state.activeServiceId = serviceId;
-  logModalBuildButton.hidden = !(isClientService(entry) && entry.sourcePath);
+  const isManager = isVpsManagerService(entry);
+  logModalManagerButton.hidden = !isManager;
+  logModalPullButton.hidden = isManager;
+  logModalDeployButton.hidden = isManager;
+  logModalBuildButton.hidden = isManager || !(isClientService(entry) && entry.sourcePath);
   logModalTitle.textContent = entry.label;
   const metaParts = [entry.serviceName, entry.serverName, entry.pm2Name];
   if (entry.sourcePath) {

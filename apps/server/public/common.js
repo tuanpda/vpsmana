@@ -58,6 +58,10 @@ async function requireAuth() {
   }
 }
 
+function isVpsManagerService(service) {
+  return String(service.pm2Name || "").toLowerCase() === "vps-manager";
+}
+
 function isClientService(service) {
   const pm2Name = String(service.pm2Name || "").toLowerCase();
   const name = String(service.name || "").toLowerCase();
