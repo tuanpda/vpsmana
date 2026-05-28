@@ -12,6 +12,7 @@ const ACTIONS_REQUIRING_SERVICE = new Set<CommandAction>([
   "PM2_STOP",
   "PM2_RESTART",
   "PM2_RELOAD",
+  "PM2_DELETE",
   "GIT_PULL",
   "NPM_INSTALL",
   "NPM_BUILD",

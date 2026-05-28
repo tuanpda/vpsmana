@@ -433,7 +433,28 @@ function renderServer(server) {
   `;
 }
 
+function isClientService(service) {
+  const pm2Name = String(service.pm2Name || "").toLowerCase();
+  return pm2Name === "client" || pm2Name.startsWith("client_");
+}
+
+function findServiceById(serviceId) {
+  for (const server of state.servers) {
+    const service = (server.services || []).find((item) => item.id === serviceId);
+    if (service) {
+      return { server, service };
+    }
+  }
+
+  return null;
+}
+
 function renderService(service) {
+  const clientBuildButton =
+    isClientService(service) && service.sourcePath
+      ? `<button class="secondary" data-service-id="${service.id}" data-action="NPM_BUILD">build</button>`
+      : "";
+
   return `
     <div class="service-row">
       <div class="service-info">
@@ -450,8 +471,10 @@ function renderService(service) {
         <button class="secondary" data-service-id="${service.id}" data-action="PM2_RELOAD">reload</button>
         <button class="secondary" data-service-id="${service.id}" data-action="GIT_PULL">pull</button>
         <button class="secondary" data-service-id="${service.id}" data-action="DEPLOY">deploy</button>
+        ${clientBuildButton}
         <button class="secondary" data-service-id="${service.id}" data-action="LOG_STREAM">log</button>
         <button class="danger" data-service-id="${service.id}" data-action="PM2_STOP">stop</button>
+        <button class="danger secondary" data-service-id="${service.id}" data-action="PM2_DELETE">xóa</button>
       </div>
     </div>
   `;
@@ -461,6 +484,24 @@ async function runAction(serviceId, action) {
   if (action === "LOG_STREAM") {
     await streamLog(serviceId);
     return;
+  }
+
+  if (action === "PM2_DELETE") {
+    const match = findServiceById(serviceId);
+    if (!match) {
+      return;
+    }
+
+    const confirmed = await confirmDialog({
+      title: "Xóa tiến trình PM2?",
+      message: `Tiến trình <strong>${escapeHtml(match.service.pm2Name)}</strong> sẽ bị gỡ khỏi PM2 trên VPS <strong>${escapeHtml(match.server.name)}</strong>. Thao tác này không hoàn tác được.`,
+      confirmLabel: "Xóa tiến trình",
+      cancelLabel: "Giữ lại"
+    });
+
+    if (!confirmed) {
+      return;
+    }
   }
 
   try {

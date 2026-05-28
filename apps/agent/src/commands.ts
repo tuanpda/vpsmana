@@ -5,6 +5,7 @@ export type CommandAction =
   | "PM2_STOP"
   | "PM2_RESTART"
   | "PM2_RELOAD"
+  | "PM2_DELETE"
   | "GIT_PULL"
   | "NPM_INSTALL"
   | "NPM_BUILD"
@@ -71,6 +72,9 @@ function buildCommandSpecs(command: AgentCommand): SpawnSpec[] {
     case "PM2_RELOAD":
       requirePm2Name(service);
       return [{ command: "pm2", args: ["reload", service.pm2Name], timeoutMs }];
+    case "PM2_DELETE":
+      requirePm2Name(service);
+      return [{ command: "pm2", args: ["delete", service.pm2Name], timeoutMs }];
     case "GIT_PULL":
       requireSourcePath(service);
       return [{ command: "git", args: ["pull", "--ff-only"], cwd: service.sourcePath, timeoutMs }];

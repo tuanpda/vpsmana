@@ -22,6 +22,7 @@ const logModalAutoscroll = document.getElementById("logModalAutoscroll");
 const logModalClear = document.getElementById("logModalClear");
 const logModalClose = document.getElementById("logModalClose");
 const logModalActions = document.getElementById("logModalActions");
+const logModalBuildButton = document.getElementById("logModalBuildButton");
 
 logsRefreshButton.addEventListener("click", () => void restartMonitor());
 logModalActions.addEventListener("click", (event) => {
@@ -240,13 +241,57 @@ function connectRealtime() {
       return;
     }
 
-    if (message.type === "command.finished" && state.activeServiceId) {
-      appendChunk(
-        state.activeServiceId,
-        `\n[command finished] ${message.payload.status || "unknown"}\n`
-      );
+    if (message.type === "command.finished") {
+      if (state.activeServiceId) {
+        appendChunk(
+          state.activeServiceId,
+          `\n[command finished] ${message.payload.status || "unknown"}\n`
+        );
+      }
+
+      if (message.payload.status === "SUCCEEDED") {
+        void removeStreamTilesIfServiceGone();
+      }
     }
   });
+}
+
+async function removeStreamTilesIfServiceGone() {
+  try {
+    const servers = await api("/api/servers");
+    let removedAny = false;
+
+    for (const [serviceId, entry] of state.streams) {
+      const exists = servers.some((server) =>
+        (server.services || []).some((service) => service.id === serviceId)
+      );
+
+      if (exists) {
+        continue;
+      }
+
+      removedAny = true;
+      if (entry.streamId) {
+        state.streamIdToServiceId.delete(entry.streamId);
+      }
+      entry.tile?.remove();
+      state.streams.delete(serviceId);
+
+      if (state.activeServiceId === serviceId) {
+        closeLogModal();
+      }
+    }
+
+    if (!removedAny) {
+      return;
+    }
+
+    setStatus(`${state.streams.size} stream đang chạy`, state.streams.size > 0);
+    logsGrid.hidden = state.streams.size === 0;
+    logsEmpty.hidden = state.streams.size > 0;
+  } catch {
+    // Ignore refresh errors after delete.
+  }
 }
 
 function stripAnsi(text) {
@@ -311,6 +356,11 @@ function updateStreamState(entry, stateName) {
   entry.tile.querySelector("[data-stream-state]").textContent = labels[stateName] || stateName;
 }
 
+function isClientService(entry) {
+  const pm2Name = String(entry.pm2Name || "").toLowerCase();
+  return pm2Name === "client" || pm2Name.startsWith("client_");
+}
+
 function openLogModal(serviceId) {
   const entry = state.streams.get(serviceId);
   if (!entry) {
@@ -318,6 +368,7 @@ function openLogModal(serviceId) {
   }
 
   state.activeServiceId = serviceId;
+  logModalBuildButton.hidden = !(isClientService(entry) && entry.sourcePath);
   logModalTitle.textContent = entry.label;
   const metaParts = [entry.serviceName, entry.serverName, entry.pm2Name];
   if (entry.sourcePath) {
@@ -408,6 +459,15 @@ async function runServiceAction(action) {
     return;
   }
 
+  if (action === "PM2_DELETE") {
+    const confirmed = window.confirm(
+      `Xóa tiến trình PM2 "${entry.pm2Name}" khỏi VPS ${entry.serverName}? Thao tác này không hoàn tác được.`
+    );
+    if (!confirmed) {
+      return;
+    }
+  }
+
   setModalActionsBusy(true);
   appendChunk(serviceId, `\n[${action}] đang gửi lệnh...\n`);
 
@@ -417,6 +477,9 @@ async function runServiceAction(action) {
       body: JSON.stringify({ action })
     });
     appendChunk(serviceId, `[${action}] queued command=${command.id}\n`);
+    if (action === "PM2_DELETE") {
+      appendChunk(serviceId, "[PM2_DELETE] đang chờ agent xóa tiến trình...\n");
+    }
   } catch (error) {
     appendChunk(serviceId, `[${action} failed] ${error.message}\n`);
   } finally {

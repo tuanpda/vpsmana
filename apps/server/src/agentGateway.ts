@@ -381,15 +381,27 @@ export class AgentGateway {
   }
 
   private async handleCommandFinished(payload: AgentCommandFinished): Promise<void> {
-    await this.prisma.command.update({
+    const command = await this.prisma.command.update({
       where: { id: payload.commandId },
       data: {
         status: payload.status,
         exitCode: payload.exitCode,
         errorMessage: payload.errorMessage ? maskSecrets(payload.errorMessage) : undefined,
         finishedAt: new Date()
+      },
+      select: {
+        serviceId: true,
+        action: true
       }
     });
+
+    if (
+      command.serviceId &&
+      command.action === "PM2_DELETE" &&
+      payload.status === "SUCCEEDED"
+    ) {
+      await this.prisma.service.delete({ where: { id: command.serviceId } }).catch(() => undefined);
+    }
 
     await this.prisma.deployment.updateMany({
       where: { commandId: payload.commandId },

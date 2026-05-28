@@ -107,6 +107,19 @@ button.danger:hover {
   background: #b91c1c;
 }
 
+button.danger.secondary {
+  background: var(--danger-soft);
+  border: 1px solid #fca5a5;
+  box-shadow: none;
+  color: #b91c1c;
+}
+
+button.danger.secondary:hover {
+  background: #fecaca;
+  border-color: #f87171;
+  color: #991b1b;
+}
+
 .page-shell {
   margin: 0 auto;
   max-width: 1200px;
