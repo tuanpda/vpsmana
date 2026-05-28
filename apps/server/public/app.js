@@ -4,6 +4,11 @@ const state = {
   socket: null
 };
 
+const outputFollows = {
+  logStreams: new Map(),
+  commandIds: new Set()
+};
+
 const loginScreen = document.getElementById("loginScreen");
 const appShell = document.getElementById("appShell");
 const loginForm = document.getElementById("loginForm");
@@ -50,7 +55,7 @@ openInstallModalButton.addEventListener("click", () => openInstallModal());
 closeInstallModalButton.addEventListener("click", () => closeInstallModal());
 installModalRoot.querySelector("[data-install-dismiss]").addEventListener("click", () => closeInstallModal());
 clearOutputButton.addEventListener("click", () => {
-  output.textContent = "";
+  void resetOutputPanel();
 });
 bootstrapForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -212,6 +217,8 @@ function showApp() {
   state.authenticated = true;
   loginScreen.hidden = true;
   appShell.hidden = false;
+  resetOutputFollows();
+  output.textContent = "";
   connectRealtime();
   void refresh();
 }
@@ -444,11 +451,56 @@ function findServiceById(serviceId) {
   return null;
 }
 
+function resetOutputFollows() {
+  outputFollows.logStreams.clear();
+  outputFollows.commandIds.clear();
+}
+
+function isFollowingLog(serviceId) {
+  for (const meta of outputFollows.logStreams.values()) {
+    if (meta.serviceId === serviceId) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function findFollowedLogByServiceId(serviceId) {
+  for (const [streamId, meta] of outputFollows.logStreams) {
+    if (meta.serviceId === serviceId) {
+      return { streamId, ...meta };
+    }
+  }
+
+  return null;
+}
+
+async function stopFollowedLogStream(streamId, serverId) {
+  await api(`/api/servers/${serverId}/logs/${streamId}/stop`, {
+    method: "POST"
+  }).catch(() => undefined);
+  outputFollows.logStreams.delete(streamId);
+}
+
+async function resetOutputPanel() {
+  const stops = [];
+
+  for (const [streamId, meta] of outputFollows.logStreams) {
+    stops.push(stopFollowedLogStream(streamId, meta.serverId));
+  }
+
+  await Promise.all(stops);
+  resetOutputFollows();
+  output.textContent = "";
+}
+
 function renderService(service) {
   const clientBuildButton =
     isClientService(service) && service.sourcePath
       ? `<button class="secondary" data-service-id="${service.id}" data-action="NPM_BUILD">build</button>`
       : "";
+  const followingLog = isFollowingLog(service.id);
 
   return `
     <div class="service-row">
@@ -467,7 +519,7 @@ function renderService(service) {
         <button class="secondary" data-service-id="${service.id}" data-action="GIT_PULL">pull</button>
         <button class="secondary" data-service-id="${service.id}" data-action="DEPLOY">deploy</button>
         ${clientBuildButton}
-        <button class="secondary" data-service-id="${service.id}" data-action="LOG_STREAM">log</button>
+        <button class="secondary ${followingLog ? "is-following" : ""}" data-service-id="${service.id}" data-action="LOG_STREAM">${followingLog ? "đang xem" : "log"}</button>
         <button class="danger" data-service-id="${service.id}" data-action="PM2_STOP">stop</button>
         <button class="danger secondary" data-service-id="${service.id}" data-action="PM2_DELETE">xóa</button>
       </div>
@@ -504,6 +556,7 @@ async function runAction(serviceId, action) {
       method: "POST",
       body: JSON.stringify({ action })
     });
+    outputFollows.commandIds.add(command.id);
     appendOutput(`[queued] ${action} command=${command.id}`);
   } catch (error) {
     appendOutput(`[failed] ${action}: ${error.message}`);
@@ -511,12 +564,31 @@ async function runAction(serviceId, action) {
 }
 
 async function streamLog(serviceId) {
+  const match = findServiceById(serviceId);
+  if (!match) {
+    return;
+  }
+
+  const existing = findFollowedLogByServiceId(serviceId);
+  if (existing) {
+    await stopFollowedLogStream(existing.streamId, existing.serverId);
+    appendOutput(`[log] stopped ${match.service.pm2Name}`);
+    render();
+    return;
+  }
+
   try {
     const stream = await api(`/api/services/${serviceId}/logs/stream`, {
       method: "POST",
       body: JSON.stringify({ lines: 100 })
     });
-    appendOutput(`[log] started stream=${stream.streamId}`);
+    outputFollows.logStreams.set(stream.streamId, {
+      serviceId,
+      serverId: match.server.id,
+      pm2Name: match.service.pm2Name
+    });
+    appendOutput(`[log] following ${match.service.pm2Name}`);
+    render();
   } catch (error) {
     appendOutput(`[log failed] ${error.message}`);
   }
@@ -531,29 +603,39 @@ function connectRealtime() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   state.socket = new WebSocket(`${protocol}//${window.location.host}/ui`);
 
-  state.socket.addEventListener("open", () => appendOutput("[realtime] connected"));
-  state.socket.addEventListener("close", () => appendOutput("[realtime] disconnected"));
   state.socket.addEventListener("message", (event) => {
     const message = JSON.parse(event.data);
 
     if (message.type === "command.output") {
-      appendOutput(`[${message.payload.commandId}] ${message.payload.chunk}`);
+      if (outputFollows.commandIds.has(message.payload.commandId)) {
+        appendOutput(`[${message.payload.commandId}] ${message.payload.chunk}`);
+      }
       return;
     }
 
     if (message.type === "command.finished") {
-      appendOutput(`[${message.payload.commandId}] finished: ${message.payload.status}`);
+      if (outputFollows.commandIds.has(message.payload.commandId)) {
+        appendOutput(`[${message.payload.commandId}] finished: ${message.payload.status}`);
+        outputFollows.commandIds.delete(message.payload.commandId);
+      }
       void refresh();
       return;
     }
 
     if (message.type === "log.output") {
-      appendOutput(`[log:${message.payload.pm2Name}] ${message.payload.chunk}`);
+      const meta = outputFollows.logStreams.get(message.payload.streamId);
+      if (meta) {
+        appendOutput(`[log:${meta.pm2Name}] ${stripAnsi(message.payload.chunk)}`);
+      }
       return;
     }
 
-    if (message.type.startsWith("alert.")) {
-      appendOutput(`[alert] ${JSON.stringify(message.payload)}`);
+    if (message.type === "log.ended") {
+      const hadFollowedLog = outputFollows.logStreams.has(message.payload.streamId);
+      outputFollows.logStreams.delete(message.payload.streamId);
+      if (hadFollowedLog) {
+        render();
+      }
       return;
     }
 
@@ -563,8 +645,15 @@ function connectRealtime() {
   });
 }
 
+function stripAnsi(text) {
+  return String(text).replace(/\u001b\[[0-9;]*m/g, "");
+}
+
 function appendOutput(line) {
-  output.textContent += `${new Date().toLocaleTimeString()} ${line}\n`;
+  output.textContent += `${new Date().toLocaleTimeString()} ${line}`;
+  if (!String(line).endsWith("\n")) {
+    output.textContent += "\n";
+  }
   output.scrollTop = output.scrollHeight;
 }
 
