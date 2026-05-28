@@ -62,6 +62,18 @@ function isVpsManagerService(service) {
   return String(service.pm2Name || "").toLowerCase() === "vps-manager";
 }
 
+async function runManagerPullBuild(serviceId) {
+  const pull = await api(`/api/services/${serviceId}/actions`, {
+    method: "POST",
+    body: JSON.stringify({ action: "GIT_PULL" })
+  });
+  const restart = await api(`/api/services/${serviceId}/actions`, {
+    method: "POST",
+    body: JSON.stringify({ action: "PM2_RESTART" })
+  });
+  return { pull, restart };
+}
+
 function isClientService(service) {
   const pm2Name = String(service.pm2Name || "").toLowerCase();
   const name = String(service.name || "").toLowerCase();

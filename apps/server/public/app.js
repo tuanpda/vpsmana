@@ -555,6 +555,19 @@ async function runAction(serviceId, action) {
     }
   }
 
+  if (action === "MANAGER_PULL_RESTART") {
+    try {
+      appendOutput("[pull&build] git pull...");
+      const { pull, restart } = await runManagerPullBuild(serviceId);
+      outputFollows.commandIds.add(pull.id);
+      outputFollows.commandIds.add(restart.id);
+      appendOutput(`[pull&build] queued pull=${pull.id}, restart=${restart.id}`);
+    } catch (error) {
+      appendOutput(`[pull&build failed] ${error.message}`);
+    }
+    return;
+  }
+
   try {
     const command = await api(`/api/services/${serviceId}/actions`, {
       method: "POST",

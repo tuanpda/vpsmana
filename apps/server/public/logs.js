@@ -470,6 +470,22 @@ async function runServiceAction(action) {
     }
   }
 
+  if (action === "MANAGER_PULL_RESTART") {
+    setModalActionsBusy(true);
+    try {
+      appendChunk(serviceId, "\n[pull&build] git pull...\n");
+      const { pull, restart } = await runManagerPullBuild(serviceId);
+      appendChunk(serviceId, `[pull&build] pull command=${pull.id}\n`);
+      appendChunk(serviceId, "[pull&build] pm2 restart...\n");
+      appendChunk(serviceId, `[pull&build] restart command=${restart.id}\n`);
+    } catch (error) {
+      appendChunk(serviceId, `[pull&build failed] ${error.message}\n`);
+    } finally {
+      setModalActionsBusy(false);
+    }
+    return;
+  }
+
   setModalActionsBusy(true);
   appendChunk(serviceId, `\n[${action}] đang gửi lệnh...\n`);
 
