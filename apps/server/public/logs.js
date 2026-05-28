@@ -356,11 +356,6 @@ function updateStreamState(entry, stateName) {
   entry.tile.querySelector("[data-stream-state]").textContent = labels[stateName] || stateName;
 }
 
-function isClientService(entry) {
-  const pm2Name = String(entry.pm2Name || "").toLowerCase();
-  return pm2Name === "client" || pm2Name.startsWith("client_");
-}
-
 function openLogModal(serviceId) {
   const entry = state.streams.get(serviceId);
   if (!entry) {

@@ -433,11 +433,6 @@ function renderServer(server) {
   `;
 }
 
-function isClientService(service) {
-  const pm2Name = String(service.pm2Name || "").toLowerCase();
-  return pm2Name === "client" || pm2Name.startsWith("client_");
-}
-
 function findServiceById(serviceId) {
   for (const server of state.servers) {
     const service = (server.services || []).find((item) => item.id === serviceId);

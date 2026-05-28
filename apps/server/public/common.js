@@ -57,3 +57,40 @@ async function requireAuth() {
     return false;
   }
 }
+
+function isClientService(service) {
+  const pm2Name = String(service.pm2Name || "").toLowerCase();
+  const name = String(service.name || "").toLowerCase();
+  const sourcePath = String(service.sourcePath || "").toLowerCase();
+
+  if (
+    pm2Name.includes("backend") ||
+    pm2Name.endsWith("_be") ||
+    pm2Name.endsWith("-be") ||
+    sourcePath.includes("/backend")
+  ) {
+    return false;
+  }
+
+  if (pm2Name === "client" || pm2Name.startsWith("client_") || pm2Name.startsWith("client-")) {
+    return true;
+  }
+
+  if (pm2Name.endsWith("_fe") || pm2Name.endsWith("-fe") || name.endsWith("_fe") || name.endsWith("-fe")) {
+    return true;
+  }
+
+  if (pm2Name.includes("frontend") || name.includes("frontend")) {
+    return true;
+  }
+
+  if (/\/client\/?$/.test(sourcePath) || /\/client\//.test(sourcePath)) {
+    return true;
+  }
+
+  if (sourcePath.includes("/frontend") || /\/fe\/?$/.test(sourcePath)) {
+    return true;
+  }
+
+  return false;
+}
